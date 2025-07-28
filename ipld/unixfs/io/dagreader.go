@@ -665,13 +665,16 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 func (dr *dagReader) WriteNWI(w io.Writer) error {
 
 	s := 0
+	ctxx, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
 	dr.RetrieveAllSet(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
-	go dr.startTimer(dr.startOfNext, s)
+	go dr.startTimer(ctxx, dr.startOfNext, s)
 
-	return dr.WriteNWI2(w)
+	err := dr.WriteNWI2(w)
+	cancell()
+	return err
 
 }
 
@@ -788,6 +791,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 			nbr++
 		}
 	}
+	dr.ctx.Done()
 	return nil
 }
 
@@ -863,12 +867,15 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	return
 }
 
-func (dr *dagReader) startTimer(start int, s int) {
+func (dr *dagReader) startTimer(ctx context.Context, start int, s int) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
+		case <-ctx.Done():
+			fmt.Println("Timer stopped")
+			return
 		case <-ticker.C:
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
