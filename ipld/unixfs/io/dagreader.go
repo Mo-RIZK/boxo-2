@@ -671,7 +671,9 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	//launch a gourotine in the background that do timer and update the times, indexes
 	go dr.startTimer(dr.startOfNext, s)
 
-	return dr.WriteNWI2(w)
+	time.Sleep(40)
+	return nil
+	//return dr.WriteNWI2(w)
 
 }
 
@@ -845,6 +847,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					}
 					fmt.Fprintf(os.Stdout, "---------------- Finished reading from the done channel---------- \n")
 					fmt.Fprintf(os.Stdout, "---------------- Length of indexes is : %d 2 ---------------- \n", len(dr.Indexes))
+					dr.startOfNext++
 					return
 				}
 			} else {
