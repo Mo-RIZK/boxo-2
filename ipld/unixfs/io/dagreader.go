@@ -694,11 +694,15 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			dr.mu.Lock()
+			for _, b := range dr.Indexes {
+				fmt.Fprintf(os.Stdout, "---------------- Indexes content : %d ---------------- \n", b)
+			}
 			fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1.5 ---------------- \n")
 			if contains(dr.Indexes, nbr%(dr.or+dr.par)) && len(linksparallel) < dr.or {
 				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 2 ---------------- \n")
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				linksparallel = append(linksparallel, topass)
+				fmt.Fprintf(os.Stdout, "---------------- Length of links parallel is: %d and the nbr mod or+par is : %d ---------------- \n", len(linksparallel), nbr%(dr.or+dr.par))
 			}
 			if len(linksparallel) == dr.or {
 				dr.startOfNext++
