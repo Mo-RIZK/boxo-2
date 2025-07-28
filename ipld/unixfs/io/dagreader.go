@@ -101,18 +101,15 @@ func NewDagReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter) (DagRe
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 
 	return &dagReader{
-		ctx:         ctxWithCancel,
-		cancel:      cancel,
-		serv:        serv,
-		size:        size,
-		mode:        mode,
-		modTime:     modTime,
-		rootNode:    n,
-		dagWalker:   ipld.NewWalker(ctxWithCancel, ipld.NewNavigableIPLDNode(n, serv)),
-		mechanism:   "Rep",
-		times:       make([]time.Duration, 0),
-		Indexes:     make([]int, 0),
-		startOfNext: 0,
+		ctx:       ctxWithCancel,
+		cancel:    cancel,
+		serv:      serv,
+		size:      size,
+		mode:      mode,
+		modTime:   modTime,
+		rootNode:  n,
+		dagWalker: ipld.NewWalker(ctxWithCancel, ipld.NewNavigableIPLDNode(n, serv)),
+		mechanism: "Rep",
 	}, nil
 }
 
@@ -182,6 +179,9 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		par:         par,
 		chunksize:   chunksize,
 		nodesToExtr: make([]ipld.Node, 0),
+		times:       make([]time.Duration, 0),
+		Indexes:     make([]int, 0),
+		startOfNext: 0,
 	}, nil
 }
 
@@ -685,7 +685,7 @@ func contains(slice []int, value int) bool {
 }
 
 func (dr *dagReader) WriteNWI2(w io.Writer) error {
-	fmt.Fprintf(os.Stdout, "---------------- Entered the last writer ---------------- \n")
+	fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1 ---------------- \n")
 	linksparallel := make([]*ipld.Link, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
@@ -695,12 +695,14 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 		for _, l := range n.Links() {
 			dr.mu.Lock()
 			if contains(dr.Indexes, nbr%(dr.or+dr.par)) && len(linksparallel) < dr.or {
+				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 2 ---------------- \n")
 				linksparallel = append(linksparallel, l)
 			}
 			if len(linksparallel) == dr.or {
 				dr.startOfNext++
 				dr.mu.Unlock()
 				//open channel with context
+				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 3 ---------------- \n")
 				doneChanR := make(chan nodeswithindexes, dr.or)
 				// Create a new context with cancellation for this batch
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -787,6 +789,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	defer dr.mu.Unlock()
 	set := make([]*ipld.Link, 0)
 	dr.Indexes = make([]int, 0)
+	fmt.Fprintf(os.Stdout, "---------------- The length of indexes is %d 1 ---------------- \n", len(dr.Indexes))
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if s == next*(dr.or+dr.par) {
@@ -847,6 +850,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 			}
 		}
 	}
+	fmt.Fprintf(os.Stdout, "---------------- Length of indexes is : %d 2 ---------------- \n", len(dr.Indexes))
 	return
 }
 
