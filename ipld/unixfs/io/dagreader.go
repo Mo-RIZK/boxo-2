@@ -843,14 +843,15 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 						dr.times = append(dr.times, value.t)
 						fmt.Fprintf(os.Stdout, "---------------- IN TIMER : this is the new index: %d and this is the time: %s ---------------- \n", value.Index, value.t.String())
 					}
+					fmt.Fprintf(os.Stdout, "---------------- Finished reading from the done channel---------- \n")
+					fmt.Fprintf(os.Stdout, "---------------- Length of indexes is : %d 2 ---------------- \n", len(dr.Indexes))
+					return
 				}
-				break
 			} else {
 				s++
 			}
 		}
 	}
-	fmt.Fprintf(os.Stdout, "---------------- Length of indexes is : %d 2 ---------------- \n", len(dr.Indexes))
 	return
 }
 
