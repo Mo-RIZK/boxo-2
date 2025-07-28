@@ -697,8 +697,9 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 			for _, b := range dr.Indexes {
 				fmt.Fprintf(os.Stdout, "---------------- Indexes content : %d ---------------- \n", b)
 			}
-			fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1.5 ---------------- \n")
-			if contains(dr.Indexes, nbr%(dr.or+dr.par)) && len(linksparallel) < dr.or {
+			tocheck := nbr % (dr.or + dr.par)
+			fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1.5 and the tocheck value is: %d  and the length of linksparallel is %d and the original number is : %d : ---------------- \n", tocheck, len(linksparallel), dr.or)
+			if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
 				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 2 ---------------- \n")
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				linksparallel = append(linksparallel, topass)
@@ -791,6 +792,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 
 func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	dr.mu.Lock()
+	defer dr.mu.Unlock()
 	set := make([]*ipld.Link, 0)
 	dr.Indexes = make([]int, 0)
 	fmt.Fprintf(os.Stdout, "---------------- The length of indexes is %d 1 ---------------- \n", len(dr.Indexes))
@@ -850,7 +852,6 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					fmt.Fprintf(os.Stdout, "---------------- Finished reading from the done channel---------- \n")
 					fmt.Fprintf(os.Stdout, "---------------- Length of indexes is : %d 2 ---------------- \n", len(dr.Indexes))
 					dr.startOfNext++
-					dr.mu.Unlock()
 					return
 				}
 			} else {
