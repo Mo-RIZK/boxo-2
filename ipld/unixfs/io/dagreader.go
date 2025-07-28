@@ -691,9 +691,9 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 	var written uint64
 	written = 0
 	nbr := 0
+	dr.mu.Lock()
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			dr.mu.Lock()
 			for _, b := range dr.Indexes {
 				fmt.Fprintf(os.Stdout, "---------------- Indexes content : %d ---------------- \n", b)
 			}
