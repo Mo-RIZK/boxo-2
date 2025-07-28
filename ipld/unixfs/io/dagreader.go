@@ -623,7 +623,6 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				reconstruct := 0
 				for value := range doneChan {
 					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
-					fmt.Fprintf(os.Stdout, "index %d \n", value.Index)
 					// Place the node's raw data into the correct index in shards
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if value.Index%(dr.or+dr.par) >= dr.or {
@@ -654,7 +653,6 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 						}
 					}
 				}
-				fmt.Fprintf(os.Stdout, "-------------------------------- \n")
 				linksparallel = make([]*ipld.Link, 0)
 			}
 		}
@@ -688,7 +686,6 @@ func contains(slice []int, value int) bool {
 }
 
 func (dr *dagReader) WriteNWI2(w io.Writer) error {
-	fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1 ---------------- \n")
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
@@ -697,22 +694,15 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 	dr.mu.Lock()
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			for _, b := range dr.Indexes {
-				fmt.Fprintf(os.Stdout, "---------------- Indexes content : %d ---------------- \n", b)
-			}
 			tocheck := nbr % (dr.or + dr.par)
-			fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1.5 and the tocheck value is: %d  and the length of linksparallel is %d and the original number is : %d : ---------------- \n", tocheck, len(linksparallel), dr.or)
 			if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
-				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 2 ---------------- \n")
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				linksparallel = append(linksparallel, topass)
-				fmt.Fprintf(os.Stdout, "---------------- Length of links parallel is: %d and the nbr mod or+par is : %d ---------------- \n", len(linksparallel), nbr%(dr.or+dr.par))
 			}
 			if len(linksparallel) == dr.or {
 				dr.startOfNext++
 				dr.mu.Unlock()
 				//open channel with context
-				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 3 ---------------- \n")
 				doneChanR := make(chan nodeswithindexes, dr.or)
 				// Create a new context with cancellation for this batch
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -720,7 +710,6 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 				defer cancel() // Ensure context is cancelled when batch is done
 				//start n+k gourotines and start retrieving parallel nodes
 				worker := func(nodepassed linkswithindexes) {
-					fmt.Fprintf(os.Stdout, "---------------- index passed to worker is : %d ---------------- \n", nodepassed.Index)
 					node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 					dr.muworker.Lock()
 					defer dr.muworker.Unlock()
@@ -754,7 +743,6 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 				reconstruct := 0
 				for value := range doneChanR {
 					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
-					fmt.Fprintf(os.Stdout, "index %d \n", value.Index)
 					// Place the node's raw data into the correct index in shards
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if value.Index%(dr.or+dr.par) >= dr.or {
@@ -762,6 +750,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 					}
 					//dr.writeNodeDataBuffer(w)
 				}
+				fmt.Fprintf(os.Stdout, "-------------------------------- \n")
 				if reconstruct == 1 {
 					dr.recnostructtimes++
 					start := time.Now()
@@ -800,7 +789,6 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	defer dr.mu.Unlock()
 	set := make([]*ipld.Link, 0)
 	dr.Indexes = make([]int, 0)
-	fmt.Fprintf(os.Stdout, "---------------- The length of indexes is %d 1 ---------------- \n", len(dr.Indexes))
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if s == next*(dr.or+dr.par) {
@@ -849,13 +837,9 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					//take from done channel
 					close(doneChan)
 					for value := range doneChan {
-						fmt.Fprintf(os.Stdout, "index %d, %s \n", value.Index, value.t.String())
 						dr.Indexes = append(dr.Indexes, value.Index)
 						dr.times = append(dr.times, value.t)
-						fmt.Fprintf(os.Stdout, "---------------- IN TIMER : this is the new index: %d and this is the time: %s ---------------- \n", value.Index, value.t.String())
 					}
-					fmt.Fprintf(os.Stdout, "---------------- Finished reading from the done channel---------- \n")
-					fmt.Fprintf(os.Stdout, "---------------- Length of indexes is : %d 2 ---------------- \n", len(dr.Indexes))
 					dr.startOfNext++
 					return
 				}
