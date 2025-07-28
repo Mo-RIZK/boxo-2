@@ -783,6 +783,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 					}
 				}
 				linksparallel = make([]linkswithindexes, 0)
+				dr.mu.Lock()
 			}
 			nbr++
 		}
