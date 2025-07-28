@@ -671,9 +671,7 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	//launch a gourotine in the background that do timer and update the times, indexes
 	go dr.startTimer(dr.startOfNext, s)
 
-	time.Sleep(40)
-	return nil
-	//return dr.WriteNWI2(w)
+	return dr.WriteNWI2(w)
 
 }
 
@@ -688,7 +686,7 @@ func contains(slice []int, value int) bool {
 
 func (dr *dagReader) WriteNWI2(w io.Writer) error {
 	fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 1 ---------------- \n")
-	linksparallel := make([]*ipld.Link, 0)
+	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
@@ -698,7 +696,8 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 			dr.mu.Lock()
 			if contains(dr.Indexes, nbr%(dr.or+dr.par)) && len(linksparallel) < dr.or {
 				fmt.Fprintf(os.Stdout, "---------------- Entered the last writer 2 ---------------- \n")
-				linksparallel = append(linksparallel, l)
+				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
+				linksparallel = append(linksparallel, topass)
 			}
 			if len(linksparallel) == dr.or {
 				dr.startOfNext++
@@ -734,8 +733,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 					}
 				}
 				dr.wg.Add(dr.or)
-				for i, link := range linksparallel {
-					topass := linkswithindexes{Link: link, Index: i}
+				for _, topass := range linksparallel {
 					go worker(topass)
 				}
 
@@ -778,7 +776,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 						}
 					}
 				}
-				linksparallel = make([]*ipld.Link, 0)
+				linksparallel = make([]linkswithindexes, 0)
 			}
 			nbr++
 		}
