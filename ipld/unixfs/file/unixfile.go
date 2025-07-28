@@ -206,6 +206,36 @@ func NewUnixfsFile(ctx context.Context, dserv ipld.DAGService, nd ipld.Node) (fi
 	}, nil
 }
 
+func NewUnixfsFileAlt(ctx context.Context, dserv ipld.DAGService, nd ipld.Node, or int, par int, chunksize uint64, mechanism string) (files.Node, error) {
+	switch dn := nd.(type) {
+	case *dag.ProtoNode:
+		fsn, err := ft.FSNodeFromBytes(dn.Data())
+		if err != nil {
+			return nil, err
+		}
+
+		if fsn.IsDir() {
+			return newUnixfsDir(ctx, dserv, dn)
+		}
+		if fsn.Type() == ft.TSymlink {
+			return files.NewSymlinkFile(string(fsn.Data()), fsn.ModTime()), nil
+		}
+
+	case *dag.RawNode:
+	default:
+		return nil, errors.New("unknown node type")
+	}
+
+	dr, err := uio.AltReader(ctx, nd, dserv, or, par, chunksize, mechanism)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ufsFile{
+		DagReader: dr,
+	}, nil
+}
+
 var (
 	_ files.Directory = &ufsDirectory{}
 	_ files.File      = &ufsFile{}
