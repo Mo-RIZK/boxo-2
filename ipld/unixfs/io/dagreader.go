@@ -668,7 +668,7 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	//update the indexes and times by retrieving the first set completely
 	dr.RetrieveAllSet(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
-	go dr.startTimer(ctxx, dr.startOfNext, s)
+	go dr.startTimer(ctxx, s)
 
 	err := dr.WriteNWI2(w)
 	cancell()
@@ -855,7 +855,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	return
 }
 
-func (dr *dagReader) startTimer(ctx context.Context, start int, s int) {
+func (dr *dagReader) startTimer(ctx context.Context, s int) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -868,7 +868,7 @@ func (dr *dagReader) startTimer(ctx context.Context, start int, s int) {
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
-			dr.RetrieveAllSet(start, s)
+			dr.RetrieveAllSet(dr.startOfNext, s)
 
 		}
 	}
