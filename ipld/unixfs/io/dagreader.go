@@ -666,7 +666,7 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
-	dr.RetrieveAllSetAlt(dr.startOfNext, s)
+	dr.RetrieveAllSet(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
 	go dr.startTimer(ctxx, s)
 
@@ -939,7 +939,7 @@ func (dr *dagReader) startTimer(ctx context.Context, s int) {
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
-			dr.RetrieveAllSetAlt(dr.startOfNext, s)
+			dr.RetrieveAllSet(dr.startOfNext, s)
 
 		}
 	}
