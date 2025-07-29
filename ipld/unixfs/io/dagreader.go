@@ -703,14 +703,16 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 				dr.startOfNext++
 				dr.mu.Unlock()
 				//open channel with context
-				doneChanR := make(chan nodeswithindexes, dr.or)
+				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
 				// Create a new context with cancellation for this batch
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 				wrote := 0
 				defer cancel() // Ensure context is cancelled when batch is done
 				//start n+k gourotines and start retrieving parallel nodes
 				worker := func(nodepassed linkswithindexes) {
+					st := time.Now()
 					node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+					t := time.Since(st)
 					dr.muworker.Lock()
 					defer dr.muworker.Unlock()
 					select {
@@ -723,7 +725,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 						return
 					default:
 						wrote++
-						doneChanR <- nodeswithindexes{Node: node, Index: nodepassed.Index}
+						doneChanR <- nodeswithindexeswithtime{Node: node, Index: nodepassed.Index, t: t}
 						if wrote == dr.or {
 							cancel()
 						}
@@ -749,8 +751,8 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 						reconstruct = 1
 					}
 					//dr.writeNodeDataBuffer(w)
+					fmt.Fprintf(os.Stdout, "--------------- Chunk: Index number : %d took : %s to be retrieved ----------------- \n", value.Index, value.t.String())
 				}
-				fmt.Fprintf(os.Stdout, "-------------------------------- \n")
 				if reconstruct == 1 {
 					dr.recnostructtimes++
 					start := time.Now()
