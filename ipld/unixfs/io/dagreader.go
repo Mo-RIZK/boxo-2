@@ -666,7 +666,7 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
-	dr.RetrieveAllSet(dr.startOfNext, s)
+	dr.RetrieveAllSetAlt(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
 	go dr.startTimer(ctxx, s)
 
@@ -855,6 +855,77 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	return
 }
 
+func (dr *dagReader) RetrieveAllSetAlt(next int, s int) {
+	dr.mu.Lock()
+	defer dr.mu.Unlock()
+	set := make([]*ipld.Link, 0)
+	dr.Indexes = make([]int, 0)
+	for _, n := range dr.nodesToExtr {
+		for _, l := range n.Links() {
+			if s == next*(dr.or+dr.par) {
+				if len(set) < dr.or+dr.par {
+					set = append(set, l)
+				}
+				if len(set) == dr.or+dr.par {
+					//open channel with context
+					doneChan := make(chan nodeswithindexeswithtime, dr.or)
+					// Create a new context with cancellation for this batch
+					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+					wrote := 0
+					defer cancel() // Ensure context is cancelled when batch is done
+					//start n+k gourotines and start retrieving parallel nodes
+					worker := func(nodepassed linkswithindexes) {
+						start := time.Now()
+						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+						t := time.Since(start)
+						dr.muworker.Lock()
+						defer dr.muworker.Unlock()
+						select {
+						case <-ctx.Done():
+							// Context cancelled, goroutine terminates early
+							if ctx.Err() == context.DeadlineExceeded {
+								fmt.Println("Timeout reached")
+								dr.ctx.Done()
+							}
+							return
+						default:
+							wrote++
+							doneChan <- nodeswithindexeswithtime{Node: node, Index: nodepassed.Index, t: t}
+							if wrote == dr.or+dr.par {
+								cancel()
+							}
+							dr.wg.Done()
+						}
+					}
+					dr.wg.Add(dr.or + dr.par)
+					for i, link := range set {
+						topass := linkswithindexes{Link: link, Index: i}
+						go worker(topass)
+					}
+
+					//wait
+					dr.wg.Wait()
+					//take from done channel
+					close(doneChan)
+					ii := 0
+					for value := range doneChan {
+						if ii < dr.or {
+							dr.Indexes = append(dr.Indexes, value.Index)
+						}
+						dr.times = append(dr.times, value.t)
+						fmt.Fprintf(os.Stdout, "OOOOOOOOOOOOOOOO In Updating: Chunk: Index number : %d took : %s to be retrieved OOOOOOOOOOOOOOOOOO \n", value.Index, value.t.String())
+					}
+					dr.startOfNext++
+					return
+				}
+			} else {
+				s++
+			}
+		}
+	}
+	return
+}
+
 func (dr *dagReader) startTimer(ctx context.Context, s int) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
@@ -868,7 +939,7 @@ func (dr *dagReader) startTimer(ctx context.Context, s int) {
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
-			dr.RetrieveAllSet(dr.startOfNext, s)
+			dr.RetrieveAllSetAlt(dr.startOfNext, s)
 
 		}
 	}
