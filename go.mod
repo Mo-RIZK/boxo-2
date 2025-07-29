@@ -77,7 +77,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 )
 
-replace github.com/ipfs/go-ipld-format v0.6.2 => github.com/Mo-RIZK/go-ipld-format v0.0.0-20250410100728-61bd00b1b711
+replace github.com/ipfs/go-ipld-format v0.6.2 => github.com/Mo-RIZK/go-ipld-format bc1af5e792675c947a8a64c6a425158ad9aa6dbb
 
 require (
 	github.com/Jorropo/jsync v1.0.1 // indirect
