@@ -751,7 +751,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 						reconstruct = 1
 					}
 					//dr.writeNodeDataBuffer(w)
-					fmt.Fprintf(os.Stdout, "--------------- Chunk: Index number : %d took : %s to be retrieved ----------------- \n", value.Index, value.t.String())
+					fmt.Fprintf(os.Stdout, "--------------- In workers: Chunk: Index number : %d took : %s to be retrieved ----------------- \n", value.Index, value.t.String())
 				}
 				if reconstruct == 1 {
 					dr.recnostructtimes++
@@ -841,6 +841,8 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					for value := range doneChan {
 						dr.Indexes = append(dr.Indexes, value.Index)
 						dr.times = append(dr.times, value.t)
+						fmt.Fprintf(os.Stdout, "OOOOOOOOOOOOOOOO In Updating: Chunk: Index number : %d took : %s to be retrieved OOOOOOOOOOOOOOOOOO \n", value.Index, value.t.String())
+
 					}
 					dr.startOfNext++
 					return
