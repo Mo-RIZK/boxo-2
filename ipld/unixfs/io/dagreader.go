@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -668,8 +669,8 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	//update the indexes and times by retrieving the first set completely
 	dr.RetrieveAllSet(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
-	go dr.startTimer(ctxx, s)
-
+	//go dr.startTimer(ctxx, s)
+	go dr.startTimer2(ctxx, s)
 	err := dr.WriteNWI2(w, cancell)
 	return err
 
@@ -812,7 +813,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					wrote := 0
 					defer cancel() // Ensure context is cancelled when batch is done
 					//start n+k gourotines and start retrieving parallel nodes
-					worker := func(ctx context.Context,cancel context.CancelFunc,nodepassed linkswithindexes) {
+					worker := func(ctx context.Context, cancel context.CancelFunc, nodepassed linkswithindexes) {
 						start := time.Now()
 						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 						t := time.Since(start)
@@ -838,7 +839,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					dr.wg.Add(dr.or)
 					for i, link := range set {
 						topass := linkswithindexes{Link: link, Index: i}
-						go worker(ctx,cancel,topass)
+						go worker(ctx, cancel, topass)
 					}
 
 					//wait
@@ -860,6 +861,53 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 		}
 	}
 	return
+}
+
+// RandomEliminate returns an array with numbers from 0 to n-1,
+// but with k unique random numbers removed.
+func RandomEliminate(n, k int) []int {
+	if k > n {
+		panic("k cannot be greater than n")
+	}
+
+	// Initialize slice with 0 to n-1
+	nums := make([]int, n)
+	for i := 0; i < n; i++ {
+		nums[i] = i
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	// Shuffle the slice to randomize order
+	rand.Shuffle(n, func(i, j int) {
+		nums[i], nums[j] = nums[j], nums[i]
+	})
+
+	// Remove first k elements from shuffled slice (they are "eliminated")
+	remaining := nums[k:]
+
+	// Optional: sort remaining if order matters
+	// sort.Ints(remaining)
+
+	return remaining
+}
+
+func (dr *dagReader) startTimer2(ctx context.Context, s int) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Timer stopped")
+			return
+		case <-ticker.C:
+			// Do the update by retrieving the next set of or + par chunks and update indexes with times
+			// dont forget to mutex lock not to interfere
+			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
+			RandomEliminate(dr.or+dr.par, dr.par)
+		}
+	}
 }
 
 func (dr *dagReader) RetrieveAllSetAlt(next int, s int) {
