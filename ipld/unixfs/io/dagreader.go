@@ -905,7 +905,7 @@ func (dr *dagReader) startTimer2(ctx context.Context, s int) {
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
-			RandomEliminate(dr.or+dr.par, dr.par)
+			dr.Indexes = RandomEliminate(dr.or+dr.par, dr.par)
 		}
 	}
 }
