@@ -5,8 +5,11 @@ package blockservice
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/ipfs/boxo/blockservice/internal"
 	"github.com/ipfs/boxo/blockstore"
@@ -270,10 +273,13 @@ func getBlock(ctx context.Context, c cid.Cid, bs BlockService, fetchFactory func
 	}
 
 	logger.Debug("BlockService: Searching")
+	tt := time.Now()
 	blk, err := fetch.GetBlock(ctx, c)
 	if err != nil {
 		return nil, err
 	}
+	enn := time.Since(tt)
+	fmt.Fprintf(os.Stdout, "--------------- I took : %s to retrieve this chunk ----------------- \n", enn.String())
 	// also write in the blockstore for caching, inform the exchange that the block is available
 	err = blockstore.Put(ctx, blk)
 	if err != nil {
