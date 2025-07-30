@@ -812,7 +812,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					wrote := 0
 					defer cancel() // Ensure context is cancelled when batch is done
 					//start n+k gourotines and start retrieving parallel nodes
-					worker := func(nodepassed linkswithindexes) {
+					worker := func(ctx context.Context,cancel context.CancelFunc,nodepassed linkswithindexes) {
 						start := time.Now()
 						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 						t := time.Since(start)
@@ -838,7 +838,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 					dr.wg.Add(dr.or)
 					for i, link := range set {
 						topass := linkswithindexes{Link: link, Index: i}
-						go worker(topass)
+						go worker(ctx,cancel,topass)
 					}
 
 					//wait
