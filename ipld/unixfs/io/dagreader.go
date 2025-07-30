@@ -893,7 +893,7 @@ func RandomEliminate(n, k int) []int {
 }
 
 func (dr *dagReader) startTimer2(ctx context.Context, s int) {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(150 * time.Second)
 	defer ticker.Stop()
 
 	for {
