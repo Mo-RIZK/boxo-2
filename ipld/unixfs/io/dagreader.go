@@ -670,8 +670,7 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	//launch a gourotine in the background that do timer and update the times, indexes
 	go dr.startTimer(ctxx, s)
 
-	err := dr.WriteNWI2(w)
-	cancell()
+	err := dr.WriteNWI2(w, cancell)
 	return err
 
 }
@@ -685,12 +684,16 @@ func contains(slice []int, value int) bool {
 	return false
 }
 
-func (dr *dagReader) WriteNWI2(w io.Writer) error {
+func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
 	nbr := 0
+	var NbStripes float64
+	NbStripes = float64(dr.size) / (float64(dr.or+dr.par) * float64(dr.chunksize))
+	fmt.Fprintf(os.Stdout, "--------------- Number of stripes is : %.2f ----------------- \n", NbStripes)
+
 	dr.mu.Lock()
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
@@ -701,6 +704,9 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 			}
 			if len(linksparallel) == dr.or {
 				dr.startOfNext++
+				if NbStripes >= float64(dr.startOfNext) {
+					cancell()
+				}
 				dr.mu.Unlock()
 				//open channel with context
 				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
@@ -772,6 +778,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer) error {
 						} else {
 							towrite := shard[0 : dr.size-written]
 							w.Write(towrite)
+							cancell()
 							return nil
 						}
 					}
