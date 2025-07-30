@@ -704,7 +704,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 			}
 			if len(linksparallel) == dr.or {
 				dr.startOfNext++
-				if NbStripes >= float64(dr.startOfNext) {
+				if NbStripes <= float64(dr.startOfNext) {
 					cancell()
 				}
 				dr.mu.Unlock()
