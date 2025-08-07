@@ -669,8 +669,8 @@ func (dr *dagReader) WriteNWI(w io.Writer) error {
 	//update the indexes and times by retrieving the first set completely
 	dr.RetrieveAllSet(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
-	go dr.startTimer(ctxx, s)
-	//go dr.startTimer2(ctxx, s)
+	//go dr.startTimer(ctxx, s)
+	go dr.startTimer2(ctxx, s)
 	err := dr.WriteNWI2(w, cancell)
 	return err
 
@@ -893,7 +893,7 @@ func RandomEliminate(n, k int) []int {
 }
 
 func (dr *dagReader) startTimer2(ctx context.Context, s int) {
-	ticker := time.NewTicker(150 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
