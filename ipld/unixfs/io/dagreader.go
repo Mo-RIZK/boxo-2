@@ -982,7 +982,7 @@ func (dr *dagReader) RetrieveAllSetAlt(next int, s int) {
 }
 
 func (dr *dagReader) startTimer(ctx context.Context, s int) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
