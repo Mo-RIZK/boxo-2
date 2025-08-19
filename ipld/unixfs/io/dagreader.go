@@ -739,8 +739,10 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	fmt.Fprintf(os.Stdout, "--------------- Number of stripes is : %.2f ----------------- \n", NbStripes)
 
 	dr.mu.Lock()
+	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
+			st := time.Now()
 			tocheck := nbr % (dr.or + dr.par)
 			if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
@@ -751,7 +753,9 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 				if NbStripes <= float64(dr.startOfNext) {
 					cancell()
 				}
+				fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
 				dr.mu.Unlock()
+				stt := time.Now()
 				//open channel with context
 				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
 				// Create a new context with cancellation for this batch
@@ -789,6 +793,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 
 				//wait
 				dr.wg.Wait()
+				fmt.Fprintf(os.Stdout, "XXXXXXX Retrieving the next set of chunks related to cids took : %s XXXXXXX \n", time.Since(stt).String())
 				//take from done channel
 				close(doneChanR)
 				shards := make([][]byte, dr.or+dr.par)
@@ -948,6 +953,7 @@ func (dr *dagReader) WriteNWI2PlusOne(w io.Writer, cancell context.CancelFunc) e
 
 
 func (dr *dagReader) RetrieveAllSet(next int, s int) {
+	st := time.Now()
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
 	set := make([]*ipld.Link, 0)
@@ -1013,6 +1019,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 			}
 		}
 	}
+	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
 	return
 }
 
