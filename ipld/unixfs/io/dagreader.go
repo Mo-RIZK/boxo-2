@@ -694,7 +694,7 @@ func (dr *dagReader) WriteNWIS(w io.Writer) error {
 	_, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
-	dr.RetrieveAllSetNew(dr.startOfNext, s)
+	dr.RetrieveAllSet(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
 	//go dr.startTimer(ctxx, s)
 	//go dr.startTimer2(ctxx, s)
