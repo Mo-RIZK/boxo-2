@@ -184,6 +184,7 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		Indexes:     make([]int, 0),
 		startOfNext: 0,
 		toskip: false,
+		written: 0,
 	}, nil
 }
 
@@ -236,6 +237,7 @@ type dagReader struct {
 	startOfNext      int
 	muworker         sync.Mutex
 	toskip 			 bool
+	written uint64
 }
 
 // Mode returns the UnixFS file mode or 0 if not set.
@@ -682,10 +684,10 @@ func (dr *dagReader) WriteNWID(w io.Writer) error {
 
 	//update the indexes and times by retrieving the first set completely
 	//dr.RetrieveAllSet(dr.startOfNext, s)
-	dr.RetrieveAllSetNew(dr.startOfNext, s)
+	dr.RetrieveAllSetNew(dr.startOfNext, s,w)
 	//launch a gourotine in the background that do timer and update the times, indexes
 	//go dr.startTimer(ctxx, s)
-	go dr.startTimerNew(ctxx, s)
+	go dr.startTimerNew(ctxx, s,w)
 	//go dr.startTimer2(ctxx, s)
 	//err := dr.WriteNWI2(w, cancell)
 	err := dr.WriteNWI2New(w, cancell)
@@ -855,8 +857,6 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
-	var written uint64
-	written = 0
 	nbr := 0
 	countchecked := 0
     
@@ -957,11 +957,11 @@ func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error
 				}
 				for i, shard := range shards {
 					if i < dr.or {
-						if written+uint64(len(shard)) < dr.size {
+						if dr.written+uint64(len(shard)) < dr.size {
 							w.Write(shard)
-							written += uint64(len(shard))
+							dr.written += uint64(len(shard))
 						} else {
-							towrite := shard[0 : dr.size-written]
+							towrite := shard[0 : dr.size-dr.written]
 							w.Write(towrite)
 							cancell()
 							return nil
@@ -1163,7 +1163,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	return
 }
 
-func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
+func (dr *dagReader) RetrieveAllSetNew(next int, s int,w io.Writer) {
 	st := time.Now()
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	dr.mu.Lock()
@@ -1242,11 +1242,11 @@ func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
 				}
 				for i, shard := range shards {
 					if i < dr.or {
-						if written+uint64(len(shard)) < dr.size {
+						if dr.written+uint64(len(shard)) < dr.size {
 							w.Write(shard)
-							written += uint64(len(shard))
+							dr.written += uint64(len(shard))
 						} else {
-							towrite := shard[0 : dr.size-written]
+							towrite := shard[0 : dr.size-dr.written]
 							w.Write(towrite)
 							cancell()
 							return nil
@@ -1474,7 +1474,7 @@ func (dr *dagReader) startTimer(ctx context.Context, s int) {
 }
 
 
-func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
+func (dr *dagReader) startTimerNew(ctx context.Context, s int,w io.Writer) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -1487,7 +1487,7 @@ func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
-			dr.RetrieveAllSetNew(dr.startOfNext, s)
+			dr.RetrieveAllSetNew(dr.startOfNext, s,w)
 
 		}
 	}
