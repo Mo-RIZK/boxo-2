@@ -846,7 +846,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	return nil
 }
 
-func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error {
+/*func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
@@ -962,7 +962,7 @@ func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error
 	dr.ctx.Done()
 	return nil
 }
-
+*/
 
 
 func (dr *dagReader) WriteNWI2PlusOne(w io.Writer, cancell context.CancelFunc) error {
@@ -1146,7 +1146,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	return
 }
 
-func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
+/*func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
 	st := time.Now()
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
@@ -1245,7 +1245,7 @@ func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
 	}
 	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
 	return
-}
+}*/
 
 func (dr *dagReader) RetrieveAllSetPlusOne(next int, s int) {
 	dr.mu.Lock()
@@ -1455,7 +1455,7 @@ func (dr *dagReader) startTimer(ctx context.Context, s int) {
 }
 
 
-func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
+/*func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -1472,7 +1472,7 @@ func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
 
 		}
 	}
-}
+}*/
 
 func (dr *dagReader) startTimerPlusOne(ctx context.Context, s int) {
 	ticker := time.NewTicker(1 * time.Second)
