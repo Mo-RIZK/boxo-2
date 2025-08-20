@@ -745,6 +745,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
+			countchecked ++
 			st := time.Now()
 			tocheck := nbr % (dr.or + dr.par)
 			if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
