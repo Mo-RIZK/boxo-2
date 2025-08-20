@@ -875,7 +875,7 @@ func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				linksparallel = append(linksparallel, topass)
 			}
-			if len(linksparallel) == dr.or && countchecked = dr.or+dr.par{
+			if len(linksparallel) == dr.or && countchecked == dr.or+dr.par{
    				if dr.toskip {
 	   				dr.startOfNext++
 					countchecked = 0
