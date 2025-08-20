@@ -1165,6 +1165,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 
 func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
 	st := time.Now()
+	enc, _ := reedsolomon.New(dr.or, dr.par)
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
 	set := make([]*ipld.Link, 0)
