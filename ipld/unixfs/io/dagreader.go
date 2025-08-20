@@ -1248,8 +1248,7 @@ func (dr *dagReader) RetrieveAllSetNew(next int, s int,w io.Writer) {
 						} else {
 							towrite := shard[0 : dr.size-dr.written]
 							w.Write(towrite)
-							cancell()
-							return nil
+							return
 						}
 					}
 				}
