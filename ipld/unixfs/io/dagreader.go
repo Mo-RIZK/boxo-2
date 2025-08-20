@@ -698,9 +698,9 @@ func (dr *dagReader) WriteNWIS(w io.Writer) error {
 	//launch a gourotine in the background that do timer and update the times, indexes
 	//go dr.startTimer(ctxx, s)
 	//go dr.startTimer2(ctxx, s)
-	go dr.startTimerNew(ctxx, s)
-	//err := dr.WriteNWI2(w, cancell)
-	err := dr.WriteNWI2New(w, cancell)
+	//go dr.startTimerNew(ctxx, s)
+	err := dr.WriteNWI2(w, cancell)
+	//err := dr.WriteNWI2New(w, cancell)
 	return err
 
 }
@@ -735,6 +735,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
+	countchecked := 0
 	nbr := 0
 	var NbStripes float64
 	NbStripes = float64(dr.size) / (float64(dr.or+dr.par) * float64(dr.chunksize))
@@ -750,7 +751,8 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				linksparallel = append(linksparallel, topass)
 			}
-			if len(linksparallel) == dr.or {
+			if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
+				countchecked = 0
 				dr.startOfNext++
 				if NbStripes <= float64(dr.startOfNext) {
 					cancell()
@@ -850,6 +852,7 @@ func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error
 	var written uint64
 	written = 0
 	nbr := 0
+	countchecked := 0
 	var NbStripes float64
 	NbStripes = float64(dr.size) / (float64(dr.or+dr.par) * float64(dr.chunksize))
 	fmt.Fprintf(os.Stdout, "--------------- Number of stripes is : %.2f ----------------- \n", NbStripes)
@@ -858,14 +861,16 @@ func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error
 	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
+			countchecked ++
 			st := time.Now()
 			tocheck := nbr % (dr.or + dr.par)
 			if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				linksparallel = append(linksparallel, topass)
 			}
-			if len(linksparallel) == dr.or {
+			if len(linksparallel) == dr.or && countchecked = dr.or+dr.par{
 				dr.startOfNext++
+				countchecked = 0
 				if NbStripes <= float64(dr.startOfNext) {
 					cancell()
 				}
