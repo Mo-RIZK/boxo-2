@@ -183,6 +183,7 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		times:       make([]time.Duration, 0),
 		Indexes:     make([]int, 0),
 		startOfNext: 0,
+		toskip: false,
 	}, nil
 }
 
@@ -234,6 +235,7 @@ type dagReader struct {
 	Indexes          []int
 	startOfNext      int
 	muworker         sync.Mutex
+	toskip 			 bool
 }
 
 // Mode returns the UnixFS file mode or 0 if not set.
@@ -679,11 +681,14 @@ func (dr *dagReader) WriteNWID(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
-	dr.RetrieveAllSet(dr.startOfNext, s)
+	//dr.RetrieveAllSet(dr.startOfNext, s)
+	dr.RetrieveAllSetNew(dr.startOfNext, s)
 	//launch a gourotine in the background that do timer and update the times, indexes
-	go dr.startTimer(ctxx, s)
+	//go dr.startTimer(ctxx, s)
+	go dr.startTimerNew(ctxx, s)
 	//go dr.startTimer2(ctxx, s)
-	err := dr.WriteNWI2(w, cancell)
+	//err := dr.WriteNWI2(w, cancell)
+	err := dr.WriteNWI2New(w, cancell)
 	return err
 
 }
@@ -847,13 +852,14 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	return nil
 }
 
-/*func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error {
+func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
 	nbr := 0
 	countchecked := 0
+    
 	var NbStripes float64
 	NbStripes = float64(dr.size) / (float64(dr.or+dr.par) * float64(dr.chunksize))
 	fmt.Fprintf(os.Stdout, "--------------- Number of stripes is : %.2f ----------------- \n", NbStripes)
@@ -870,12 +876,21 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 				linksparallel = append(linksparallel, topass)
 			}
 			if len(linksparallel) == dr.or && countchecked = dr.or+dr.par{
-				dr.startOfNext++
-				countchecked = 0
-				if NbStripes <= float64(dr.startOfNext) {
+   				if dr.toskip {
+	   				dr.startOfNext++
+					countchecked = 0
+					if NbStripes <= float64(dr.startOfNext) {
 					cancell()
-				}
-				fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
+					}
+				linksparallel = make([]linkswithindexes, 0)
+	dr.toskip = false
+				} else {
+					dr.startOfNext++
+					countchecked = 0
+					if NbStripes <= float64(dr.startOfNext) {
+					cancell()
+					}
+			 	fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
 				stt := time.Now()
 				//open channel with context
 				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
@@ -956,6 +971,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 				dr.mu.Unlock()
 				linksparallel = make([]linkswithindexes, 0)
 				dr.mu.Lock()
+				}
 			}
 			nbr++
 		}
@@ -963,7 +979,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	dr.ctx.Done()
 	return nil
 }
-*/
+
 
 
 func (dr *dagReader) WriteNWI2PlusOne(w io.Writer, cancell context.CancelFunc) error {
@@ -1147,7 +1163,7 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 	return
 }
 
-/*func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
+func (dr *dagReader) RetrieveAllSetNew(next int, s int) {
 	st := time.Now()
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
@@ -1245,8 +1261,9 @@ func (dr *dagReader) RetrieveAllSet(next int, s int) {
 		}
 	}
 	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
+ 	dr.toskip = true
 	return
-}*/
+}
 
 func (dr *dagReader) RetrieveAllSetPlusOne(next int, s int) {
 	dr.mu.Lock()
@@ -1456,7 +1473,7 @@ func (dr *dagReader) startTimer(ctx context.Context, s int) {
 }
 
 
-/*func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
+func (dr *dagReader) startTimerNew(ctx context.Context, s int) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -1473,7 +1490,7 @@ func (dr *dagReader) startTimer(ctx context.Context, s int) {
 
 		}
 	}
-}*/
+}
 
 func (dr *dagReader) startTimerPlusOne(ctx context.Context, s int) {
 	ticker := time.NewTicker(1 * time.Second)
