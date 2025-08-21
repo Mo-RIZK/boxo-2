@@ -183,8 +183,9 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		times:       make([]time.Duration, 0),
 		Indexes:     make([]int, 0),
 		startOfNext: 0,
-		toskip:      false,
+		toskip:      true,
 		written:     0,
+		retnext:     make([]linkswithindexes, 0),
 	}, nil
 }
 
@@ -238,6 +239,7 @@ type dagReader struct {
 	muworker         sync.Mutex
 	toskip           bool
 	written          uint64
+	retnext          []linkswithindexes
 }
 
 // Mode returns the UnixFS file mode or 0 if not set.
@@ -447,7 +449,8 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 			return 0, nil
 		}
 		if dr.mechanism == "ECWID" {
-			dr.WriteNWID(w)
+			//dr.WriteNWID(w)
+			dr.WriteNWID3(w)
 			//fmt.Fprintf(os.Stdout, "Time taken to reconstruct nodes : %s \n", dr.timetakenDecode.String())
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
@@ -677,6 +680,18 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	return nil
 }
 
+func (dr *dagReader) WriteNWID3(w io.Writer) error {
+
+	s := 0
+	ctxx, cancell := context.WithCancel(context.Background())
+
+	err := dr.WriteNWI3(w, cancell)
+	dr.RetrieveAllSetNew3(w)
+	go dr.startTimerNew3(ctxx, s, w)
+	return err
+
+}
+
 func (dr *dagReader) WriteNWID(w io.Writer) error {
 
 	s := 0
@@ -701,7 +716,7 @@ func (dr *dagReader) WriteNWIS(w io.Writer) error {
 	_, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
-	dr.RetrieveAllSetNew(dr.startOfNext, s,w)
+	dr.RetrieveAllSetNew(dr.startOfNext, s, w)
 	//launch a gourotine in the background that do timer and update the times, indexes
 	//go dr.startTimer(ctxx, s)
 	//go dr.startTimer2(ctxx, s)
@@ -734,6 +749,241 @@ func contains(slice []int, value int) bool {
 		}
 	}
 	return false
+}
+
+func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
+	linksparallel := make([]linkswithindexes, 0)
+	enc, _ := reedsolomon.New(dr.or, dr.par)
+	var written uint64
+	written = 0
+	countchecked := 0
+	nbr := 0
+	var NbStripes float64
+	NbStripes = float64(dr.size) / (float64(dr.or+dr.par) * float64(dr.chunksize))
+	fmt.Fprintf(os.Stdout, "--------------- Number of stripes is : %.2f ----------------- \n", NbStripes)
+
+	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
+	for _, n := range dr.nodesToExtr {
+		for _, l := range n.Links() {
+			if (dr.toskip == true || (len(dr.retnext) > 0 && len(dr.retnext) < dr.or+dr.par)) && len(linksparallel) == 0 {
+				if len(dr.retnext) < dr.or+dr.par {
+					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
+					dr.retnext = append(dr.retnext, topass)
+				}
+				if len(dr.retnext) == dr.or+dr.par {
+					dr.toskip = false
+				}
+			} else {
+				for len(dr.Indexes) != dr.or {
+
+				}
+				countchecked++
+				st := time.Now()
+				tocheck := nbr % (dr.or + dr.par)
+				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
+					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
+					linksparallel = append(linksparallel, topass)
+				}
+				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
+					dr.mu.Lock()
+					countchecked = 0
+					fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
+					stt := time.Now()
+					//open channel with context
+					doneChanR := make(chan nodeswithindexeswithtime, dr.or)
+					// Create a new context with cancellation for this batch
+					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+					wrote := 0
+					defer cancel() // Ensure context is cancelled when batch is done
+					//start n+k gourotines and start retrieving parallel nodes
+					worker := func(nodepassed linkswithindexes) {
+						st := time.Now()
+						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+						t := time.Since(st)
+						dr.muworker.Lock()
+						defer dr.muworker.Unlock()
+						select {
+						case <-ctx.Done():
+							// Context cancelled, goroutine terminates early
+							if ctx.Err() == context.DeadlineExceeded {
+								fmt.Println("Timeout reached")
+								dr.ctx.Done()
+							}
+							return
+						default:
+							wrote++
+							doneChanR <- nodeswithindexeswithtime{Node: node, Index: nodepassed.Index, t: t}
+							if wrote == dr.or {
+								cancel()
+							}
+							dr.wg.Done()
+						}
+					}
+					dr.wg.Add(dr.or)
+					for _, topass := range linksparallel {
+						go worker(topass)
+					}
+
+					//wait
+					dr.wg.Wait()
+					fmt.Fprintf(os.Stdout, "XXXXXXX Retrieving the next set of chunks related to cids took : %s XXXXXXX \n", time.Since(stt).String())
+					//take from done channel
+					close(doneChanR)
+					shards := make([][]byte, dr.or+dr.par)
+					reconstruct := 0
+					for value := range doneChanR {
+						// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
+						// Place the node's raw data into the correct index in shards
+						shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
+						if value.Index%(dr.or+dr.par) >= dr.or {
+							reconstruct = 1
+						}
+						//dr.writeNodeDataBuffer(w)
+						fmt.Fprintf(os.Stdout, "--------------- In workers: Chunk: Index number : %d took : %s to be retrieved ----------------- \n", value.Index, value.t.String())
+					}
+					if reconstruct == 1 {
+						dr.recnostructtimes++
+						start := time.Now()
+						enc.Reconstruct(shards)
+						end := time.Now()
+						dr.timetakenDecode += end.Sub(start)
+						st := time.Now()
+						enc.Verify(shards)
+						en := time.Now()
+						dr.verificationTime += en.Sub(st)
+					}
+					for i, shard := range shards {
+						if i < dr.or {
+							if written+uint64(len(shard)) < dr.size {
+								w.Write(shard)
+								written += uint64(len(shard))
+							} else {
+								towrite := shard[0 : dr.size-written]
+								w.Write(towrite)
+								cancell()
+								return nil
+							}
+						}
+					}
+					linksparallel = make([]linkswithindexes, 0)
+					dr.mu.Unlock()
+				}
+			}
+			nbr++
+
+		}
+	}
+	dr.ctx.Done()
+	return nil
+}
+
+func (dr *dagReader) RetrieveAllSetNew3(w io.Writer) {
+	st := time.Now()
+	enc, _ := reedsolomon.New(dr.or, dr.par)
+	for len(dr.retnext) != dr.or+dr.par {
+
+	}
+	dr.mu.Lock()
+	defer dr.mu.Unlock()
+	dr.Indexes = make([]int, 0)
+	//open channel with context
+	doneChan := make(chan nodeswithindexeswithtime, dr.or)
+	// Create a new context with cancellation for this batch
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	wrote := 0
+	defer cancel() // Ensure context is cancelled when batch is done
+	//start n+k gourotines and start retrieving parallel nodes
+	worker := func(ctx context.Context, cancel context.CancelFunc, nodepassed linkswithindexes) {
+		start := time.Now()
+		node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+		t := time.Since(start)
+		dr.muworker.Lock()
+		defer dr.muworker.Unlock()
+		select {
+		case <-ctx.Done():
+			// Context cancelled, goroutine terminates early
+			if ctx.Err() == context.DeadlineExceeded {
+				fmt.Println("Timeout reached")
+				dr.ctx.Done()
+			}
+			return
+		default:
+			wrote++
+			doneChan <- nodeswithindexeswithtime{Node: node, Index: nodepassed.Index, t: t}
+			if wrote == dr.or {
+				cancel()
+			}
+			dr.wg.Done()
+		}
+	}
+	dr.wg.Add(dr.or)
+	for i, link := range dr.retnext {
+		topass := linkswithindexes{Link: link.Link, Index: i}
+		go worker(ctx, cancel, topass)
+	}
+
+	//wait
+	dr.wg.Wait()
+	shards := make([][]byte, dr.or+dr.par)
+	reconstruct := 0
+
+	//take from done channel
+	close(doneChan)
+	for value := range doneChan {
+		dr.Indexes = append(dr.Indexes, value.Index)
+		dr.times = append(dr.times, value.t)
+		shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
+		if value.Index%(dr.or+dr.par) >= dr.or {
+			reconstruct = 1
+		}
+		fmt.Fprintf(os.Stdout, "OOOOOOOOOOOOOOOO In Updating: Chunk: Index number : %d took : %s to be retrieved OOOOOOOOOOOOOOOOOO \n", value.Index, value.t.String())
+	}
+	if reconstruct == 1 {
+		dr.recnostructtimes++
+		start := time.Now()
+		enc.Reconstruct(shards)
+		end := time.Now()
+		dr.timetakenDecode += end.Sub(start)
+		st := time.Now()
+		enc.Verify(shards)
+		en := time.Now()
+		dr.verificationTime += en.Sub(st)
+	}
+	for i, shard := range shards {
+		if i < dr.or {
+			if dr.written+uint64(len(shard)) < dr.size {
+				w.Write(shard)
+				dr.written += uint64(len(shard))
+			} else {
+				towrite := shard[0 : dr.size-dr.written]
+				w.Write(towrite)
+				return
+			}
+		}
+	}
+	dr.retnext = make([]linkswithindexes, 0)
+	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
+	return
+}
+
+func (dr *dagReader) startTimerNew3(ctx context.Context, s int, w io.Writer) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Timer stopped")
+			return
+		case <-ticker.C:
+			// Do the update by retrieving the next set of or + par chunks and update indexes with times
+			// dont forget to mutex lock not to interfere
+			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
+			dr.toskip = true
+			dr.RetrieveAllSetNew3(w)
+
+		}
+	}
 }
 
 func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
