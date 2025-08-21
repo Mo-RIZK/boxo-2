@@ -766,16 +766,19 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if (dr.toskip == true || (len(dr.retnext) > 0 && len(dr.retnext) < dr.or+dr.par)) && len(linksparallel) == 0 {
+				fmt.Fprintf(os.Stdout, "1111111111111111111 \n")
 				if len(dr.retnext) < dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "2222222222 \n")
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					dr.retnext = append(dr.retnext, topass)
 				}
 				if len(dr.retnext) == dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "33333333333333 \n")
 					dr.toskip = false
 				}
 			} else {
 				for len(dr.Indexes) != dr.or {
-
+					fmt.Fprintf(os.Stdout, "4444444444444 \n")
 				}
 				countchecked++
 				st := time.Now()
@@ -881,7 +884,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer) {
 	st := time.Now()
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	for len(dr.retnext) != dr.or+dr.par {
-
+		fmt.Fprintf(os.Stdout, "5555555555555 \n")
 	}
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
@@ -891,6 +894,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer) {
 	// Create a new context with cancellation for this batch
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	wrote := 0
+	fmt.Fprintf(os.Stdout, "66666666666666666666 \n")
 	defer cancel() // Ensure context is cancelled when batch is done
 	//start n+k gourotines and start retrieving parallel nodes
 	worker := func(ctx context.Context, cancel context.CancelFunc, nodepassed linkswithindexes) {
