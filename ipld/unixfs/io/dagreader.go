@@ -701,12 +701,12 @@ func (dr *dagReader) WriteNWIS(w io.Writer) error {
 	_, cancell := context.WithCancel(context.Background())
 
 	//update the indexes and times by retrieving the first set completely
-	dr.RetrieveAllSet(dr.startOfNext, s)
+	dr.RetrieveAllSetNew(dr.startOfNext, s,w)
 	//launch a gourotine in the background that do timer and update the times, indexes
 	//go dr.startTimer(ctxx, s)
 	//go dr.startTimer2(ctxx, s)
 	//go dr.startTimerNew(ctxx, s)
-	err := dr.WriteNWI2(w, cancell)
+	err := dr.WriteNWI2New(w, cancell)
 	//err := dr.WriteNWI2New(w, cancell)
 	return err
 
@@ -875,7 +875,7 @@ func (dr *dagReader) WriteNWI2New(w io.Writer, cancell context.CancelFunc) error
 				linksparallel = append(linksparallel, topass)
 			}
 			if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
-				if dr.toskip {
+				if dr.toskip == true {
 					dr.startOfNext++
 					countchecked = 0
 					if NbStripes <= float64(dr.startOfNext) {
@@ -1249,16 +1249,15 @@ func (dr *dagReader) RetrieveAllSetNew(next int, s int, w io.Writer) {
 						}
 					}
 					dr.startOfNext++
-					break
+					dr.toskip = true
+					return
 				}
 			} else {
 				s++
 			}
 		}
-		break
 	}
 	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
-	dr.toskip = true
 	return
 }
 
