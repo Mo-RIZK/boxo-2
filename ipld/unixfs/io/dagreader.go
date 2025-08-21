@@ -685,8 +685,8 @@ func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	s := 0
 	ctxx, cancell := context.WithCancel(context.Background())
 
+	go dr.RetrieveAllSetNew3(w)
 	err := dr.WriteNWI3(w, cancell)
-	dr.RetrieveAllSetNew3(w)
 	go dr.startTimerNew3(ctxx, s, w)
 	return err
 
