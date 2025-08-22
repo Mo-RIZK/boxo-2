@@ -449,8 +449,8 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 			return 0, nil
 		}
 		if dr.mechanism == "ECWID" {
-			//dr.WriteNWID(w)
-			dr.WriteNWID3(w)
+			dr.WriteNWID(w)
+			//dr.WriteNWID3(w)
 			//fmt.Fprintf(os.Stdout, "Time taken to reconstruct nodes : %s \n", dr.timetakenDecode.String())
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
@@ -701,11 +701,11 @@ func (dr *dagReader) WriteNWID(w io.Writer) error {
 	//dr.RetrieveAllSet(dr.startOfNext, s)
 	dr.RetrieveAllSetNew(dr.startOfNext, s, w)
 	//launch a gourotine in the background that do timer and update the times, indexes
-	//go dr.startTimer(ctxx, s)
-	go dr.startTimerNew(ctxx, s, w)
+	go dr.startTimer(ctxx, s)
+	//go dr.startTimerNew(ctxx, s, w)
 	//go dr.startTimer2(ctxx, s)
-	//err := dr.WriteNWI2(w, cancell)
-	err := dr.WriteNWI2New(w, cancell)
+	err := dr.WriteNWI2(w, cancell)
+	//err := dr.WriteNWI2New(w, cancell)
 	return err
 
 }
@@ -1019,7 +1019,6 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 					cancell()
 				}
 				fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
-				dr.mu.Unlock()
 				stt := time.Now()
 				//open channel with context
 				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
@@ -1073,6 +1072,7 @@ func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 					//dr.writeNodeDataBuffer(w)
 					fmt.Fprintf(os.Stdout, "--------------- In workers: Chunk: Index number : %d took : %s to be retrieved ----------------- \n", value.Index, value.t.String())
 				}
+				dr.mu.Unlock()
 				if reconstruct == 1 {
 					dr.recnostructtimes++
 					start := time.Now()
