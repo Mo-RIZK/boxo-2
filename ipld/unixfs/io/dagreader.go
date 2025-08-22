@@ -449,8 +449,8 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 			return 0, nil
 		}
 		if dr.mechanism == "ECWID" {
-			dr.WriteNWID(w)
-			//dr.WriteNWID3(w)
+			//dr.WriteNWID(w)
+			dr.WriteNWID3(w)
 			//fmt.Fprintf(os.Stdout, "Time taken to reconstruct nodes : %s \n", dr.timetakenDecode.String())
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
