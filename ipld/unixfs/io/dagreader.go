@@ -683,13 +683,11 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 }
 
 func (dr *dagReader) WriteNWID3(w io.Writer) error {
-
-	s := 0
 	ctxx, cancell := context.WithCancel(context.Background())
 
 	go dr.RetrieveAllSetNew3(w,cancell)
 	err := dr.WriteNWI3(w, cancell)
-	go dr.startTimerNew3(ctxx, s, w,cancell)
+	go dr.startTimerNew3(ctxx, w,cancell)
 	return err
 
 }
@@ -981,7 +979,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer,cancell context.CancelFunc) 
 	return
 }
 
-func (dr *dagReader) startTimerNew3(ctx context.Context, s int, w io.Writer) {
+func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer,cancell context.CancelFunc) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -995,7 +993,7 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, s int, w io.Writer) {
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
 			dr.toskip = true
-			dr.RetrieveAllSetNew3(w)
+			dr.RetrieveAllSetNew3(w,cancell)
 
 		}
 	}
