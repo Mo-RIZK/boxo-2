@@ -186,7 +186,7 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		toskip:      true,
 		written:     0,
 		retnext:     make([]linkswithindexes, 0),
-		stop:	false,
+		stop:        false,
 	}, nil
 }
 
@@ -241,7 +241,7 @@ type dagReader struct {
 	toskip           bool
 	written          uint64
 	retnext          []linkswithindexes
-	stop bool
+	stop             bool
 }
 
 // Mode returns the UnixFS file mode or 0 if not set.
@@ -685,9 +685,9 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 
-	go dr.RetrieveAllSetNew3(w,cancell)
+	go dr.RetrieveAllSetNew3(w, cancell)
 	err := dr.WriteNWI3(w, cancell)
-	go dr.startTimerNew3(ctxx, w,cancell)
+	go dr.startTimerNew3(ctxx, w, cancell)
 	return err
 
 }
@@ -778,7 +778,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 				}
 			} else {
 				for len(dr.Indexes) != dr.or {
-					fmt.Fprintf(os.Stdout, "4444444444444 \n")
+					fmt.Fprintf(os.Stdout, "444444 %t 4444444 \n", dr.stop)
 					if dr.stop == true {
 						return nil
 					}
@@ -866,8 +866,8 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 							} else {
 								towrite := shard[0 : dr.size-written]
 								w.Write(towrite)
-								cancell()
 								dr.stop = true
+								cancell()
 								return nil
 							}
 						}
@@ -884,7 +884,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 	return nil
 }
 
-func (dr *dagReader) RetrieveAllSetNew3(w io.Writer,cancell context.CancelFunc) {
+func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc) {
 	st := time.Now()
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	for len(dr.retnext) != dr.or+dr.par {
@@ -979,7 +979,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer,cancell context.CancelFunc) 
 	return
 }
 
-func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer,cancell context.CancelFunc) {
+func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell context.CancelFunc) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -993,7 +993,7 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer,cancell con
 			// dont forget to mutex lock not to interfere
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
 			dr.toskip = true
-			dr.RetrieveAllSetNew3(w,cancell)
+			dr.RetrieveAllSetNew3(w, cancell)
 
 		}
 	}
