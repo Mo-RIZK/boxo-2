@@ -880,6 +880,8 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 
 		}
 	}
+	dr.stop = true
+	cancell()
 	dr.ctx.Done()
 	return nil
 }
