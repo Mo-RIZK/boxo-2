@@ -186,6 +186,7 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		toskip:      true,
 		written:     0,
 		retnext:     make([]linkswithindexes, 0),
+		stop:	false,
 	}, nil
 }
 
@@ -240,6 +241,7 @@ type dagReader struct {
 	toskip           bool
 	written          uint64
 	retnext          []linkswithindexes
+	stop bool
 }
 
 // Mode returns the UnixFS file mode or 0 if not set.
@@ -685,9 +687,9 @@ func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	s := 0
 	ctxx, cancell := context.WithCancel(context.Background())
 
-	go dr.RetrieveAllSetNew3(w)
+	go dr.RetrieveAllSetNew3(w,cancell)
 	err := dr.WriteNWI3(w, cancell)
-	go dr.startTimerNew3(ctxx, s, w)
+	go dr.startTimerNew3(ctxx, s, w,cancell)
 	return err
 
 }
@@ -779,6 +781,9 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 			} else {
 				for len(dr.Indexes) != dr.or {
 					fmt.Fprintf(os.Stdout, "4444444444444 \n")
+					if dr.stop == true {
+						return nil
+					}
 				}
 				countchecked++
 				st := time.Now()
@@ -864,6 +869,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 								towrite := shard[0 : dr.size-written]
 								w.Write(towrite)
 								cancell()
+								dr.stop = true
 								return nil
 							}
 						}
@@ -880,10 +886,13 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 	return nil
 }
 
-func (dr *dagReader) RetrieveAllSetNew3(w io.Writer) {
+func (dr *dagReader) RetrieveAllSetNew3(w io.Writer,cancell context.CancelFunc) {
 	st := time.Now()
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	for len(dr.retnext) != dr.or+dr.par {
+		if dr.stop == true {
+			return
+		}
 		fmt.Fprintf(os.Stdout, "5555555555555 \n")
 	}
 	dr.mu.Lock()
@@ -961,6 +970,8 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer) {
 			} else {
 				towrite := shard[0 : dr.size-dr.written]
 				w.Write(towrite)
+				dr.stop = true
+				cancell()
 				return
 			}
 		}
