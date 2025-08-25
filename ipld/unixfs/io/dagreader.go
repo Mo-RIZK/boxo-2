@@ -800,7 +800,6 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 					defer cancel() // Ensure context is cancelled when batch is done
 					//start n+k gourotines and start retrieving parallel nodes
 					worker := func(nodepassed linkswithindexes) {
-						st := time.Now()
 						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 						t := time.Since(st)
 						dr.muworker.Lock()
