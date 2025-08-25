@@ -687,9 +687,9 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 
-	go dr.RetrieveAllSetNew3(w, cancell)
-	err := dr.WriteNWI3(w, cancell)
 	go dr.startTimerNew3(ctxx, w, cancell)
+	err := dr.WriteNWI3(w, cancell)
+	
 	return err
 
 }
