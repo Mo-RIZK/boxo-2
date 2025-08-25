@@ -871,6 +871,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc, nextread
 						en := time.Now()
 						dr.verificationTime += en.Sub(st)
 					}
+					dr.mu.Lock()
 					for i, shard := range shards {
 						if i < dr.or {
 							if written+uint64(len(shard)) < dr.size {
@@ -881,10 +882,12 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc, nextread
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
+								dr.mu.Unlock()
 								return nil
 							}
 						}
 					}
+					dr.mu.Unlock()
 					linksparallel = make([]linkswithindexes, 0)
 				}
 			}
@@ -955,6 +958,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc,
 		}
 		fmt.Fprintf(os.Stdout, "OOOOOOOOOOOOOOOO In Updating: Chunk: Index number : %d took : %s to be retrieved OOOOOOOOOOOOOOOOOO \n", value.Index, value.t.String())
 	}
+	
 	if reconstruct == 1 {
 		dr.recnostructtimes++
 		start := time.Now()
@@ -966,6 +970,10 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc,
 		en := time.Now()
 		dr.verificationTime += en.Sub(st)
 	}
+	dr.retnext = make([]linkswithindexes, 0)
+	dr.Indexes = ll
+	indexesready <- struct{}{}
+	dr.mu.Lock()
 	for i, shard := range shards {
 		if i < dr.or {
 			if dr.written+uint64(len(shard)) < dr.size {
@@ -975,14 +983,14 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc,
 				towrite := shard[0 : dr.size-dr.written]
 				w.Write(towrite)
 				dr.stop = true
+				dr.mu.Unlock()
 				cancell()
 				return
 			}
 		}
 	}
-	dr.retnext = make([]linkswithindexes, 0)
-	dr.Indexes = ll
-	indexesready <- struct{}{}
+	dr.mu.Unlock()
+	
 	// Send signal to the writing loop
 	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
 	return
@@ -1008,9 +1016,7 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell co
 				close(indexesready)
 				return
 			}
-			dr.mu.Lock()
 			dr.toskip = true
-			dr.mu.Unlock()
 			select {
 			case <-nextready:
 			}
