@@ -976,6 +976,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 }
 
 func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell context.CancelFunc) {
+	fmt.Fprintf(os.Stdout, "---------------The interval is : %f ----------------- \n",dr.interval)
 	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
 
