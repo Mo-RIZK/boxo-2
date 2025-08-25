@@ -454,7 +454,7 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 		}
 		if dr.mechanism == "ECWID" {
 			//dr.WriteNWID(w)
-			dr.WriteNWID4(w)
+			dr.WriteNWID3(w)
 			//fmt.Fprintf(os.Stdout, "Time taken to reconstruct nodes : %s \n", dr.timetakenDecode.String())
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
@@ -684,15 +684,6 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	return nil
 }
 
-func (dr *dagReader) WriteNWID3(w io.Writer) error {
-	ctxx, cancell := context.WithCancel(context.Background())
-	go dr.startTimerNew3(ctxx, w, cancell)
-	err := dr.WriteNWI3(w, cancell)
-
-	return err
-
-}
-
 func (dr *dagReader) WriteNWID(w io.Writer) error {
 
 	s := 0
@@ -752,7 +743,24 @@ func contains(slice []int, value int) bool {
 	return false
 }
 
-func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
+////////////////////////////
+/////////////////////////////////
+//////////////////////////////////////////
+//////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+
+func (dr *dagReader) WriteNWID3(w io.Writer) error {
+	ctxx, cancell := context.WithCancel(context.Background())
+	nextready := make(chan struct{})
+	indexesready := make(chan struct{})
+	go dr.startTimerNew3(ctxx, w, cancell, nextready, indexesready)
+	err := dr.WriteNWI3(w, cancell, nextready, indexesready)
+
+	return err
+
+}
+
+func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc, nextready chan struct{}, indexesready chan struct{}) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
@@ -777,11 +785,15 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 					fmt.Fprintf(os.Stdout, "33333333333333 \n")
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
+					nextready <- struct{}{}
 				}
 			} else {
-				for len(dr.Indexes) != dr.or {
-					if dr.stop == true {
-						return nil
+				if dr.stop == true {
+					return nil
+				}
+				if len(dr.Indexes) == 0 {
+					select {
+					case <-indexesready:
 					}
 				}
 				fmt.Fprintf(os.Stdout, "TO writeeeeeeeeee here the dr indexes are filled \n")
@@ -886,15 +898,9 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 	return nil
 }
 
-func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc) {
+func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc, nextready chan struct{}, indexesready chan struct{}) {
 	st := time.Now()
 	enc, _ := reedsolomon.New(dr.or, dr.par)
-	for len(dr.retnext) != dr.or+dr.par {
-		fmt.Fprintf(os.Stdout, "5555555555555 \n")
-	}
-	if dr.stop == true {
-		return
-	}
 	ll := make([]int, 0)
 	//open channel with context
 	doneChan := make(chan nodeswithindexeswithtime, dr.or)
@@ -976,14 +982,19 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 	}
 	dr.retnext = make([]linkswithindexes, 0)
 	dr.Indexes = ll
+	indexesready <- struct{}{}
+	// Send signal to the writing loop
 	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
 	return
 }
 
-func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell context.CancelFunc) {
+func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell context.CancelFunc, nextready chan struct{}, indexesready chan struct{}) {
 	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
-
+	select {
+	case <-nextready:
+	}
+	dr.RetrieveAllSetNew3(w, cancell, nextready, indexesready)
 	for {
 		select {
 		case <-ctx.Done():
@@ -992,13 +1003,28 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell co
 		case <-ticker.C:
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
-			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
+			if dr.stop == true {
+				close(nextready)
+				close(indexesready)
+				return
+			}
+			dr.mu.Lock()
 			dr.toskip = true
-			dr.RetrieveAllSetNew3(w, cancell)
-
+			dr.mu.Unlock()
+			select {
+			case <-nextready:
+			}
+			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
+			dr.RetrieveAllSetNew3(w, cancell, nextready, indexesready)
 		}
 	}
 }
+
+////////////////////////////
+/////////////////////////////////
+//////////////////////////////////////////
+//////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
 
 func (dr *dagReader) WriteNWI2(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0)
@@ -1993,7 +2019,6 @@ type linkswithindexes struct {
 	Link  *ipld.Link
 	Index int
 }
-
 
 // ------------------- MAIN ENTRY -------------------
 func (dr *dagReader) WriteNWID4(w io.Writer) error {
