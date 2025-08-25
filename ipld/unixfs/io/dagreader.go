@@ -775,6 +775,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 				}
 				if len(dr.retnext) == dr.or+dr.par {
 					fmt.Fprintf(os.Stdout, "33333333333333 \n")
+					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 				}
 			} else {
@@ -894,7 +895,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 	if dr.stop == true {
 		return
 	}
-	dr.Indexes = make([]int, 0)
+	ll := make([]int, 0)
 	//open channel with context
 	doneChan := make(chan nodeswithindexeswithtime, dr.or)
 	// Create a new context with cancellation for this batch
@@ -940,7 +941,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 	//take from done channel
 	close(doneChan)
 	for value := range doneChan {
-		dr.Indexes = append(dr.Indexes, value.Index)
+		ll = append(ll, value.Index)
 		dr.times = append(dr.times, value.t)
 		shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 		if value.Index%(dr.or+dr.par) >= dr.or {
@@ -974,6 +975,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 		}
 	}
 	dr.retnext = make([]linkswithindexes, 0)
+	dr.Indexes = ll
 	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
 	return
 }
