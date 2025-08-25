@@ -1994,36 +1994,34 @@ type linkswithindexes struct {
 	Index int
 }
 
+
+// ------------------- MAIN ENTRY -------------------
 func (dr *dagReader) WriteNWID4(w io.Writer) error {
-	ctxx, cancell := context.WithCancel(context.Background())
-	go dr.startTimerNew3(ctxx, w, cancell)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Prepare channels for initial retrieval
-	doneIndexes := make(chan struct{})
-	doneRetnext := make(chan struct{})
+	updateCh := make(chan struct{}, 1)
 
-	// Launch initial retrieval
-	go dr.RetrieveAllSetNew4(w, doneRetnext, doneIndexes)
+	// Start timer goroutine
+	go dr.startTimerNew4(ctx, w, updateCh)
 
-	// Run main writing loop
-	err := dr.WriteNWI4(w, doneRetnext, doneIndexes, cancell)
-	return err
+	// Main writing loop
+	return dr.WriteNWI4(w, updateCh, cancel, ctx)
 }
 
-// WriteNWI3 uses channels to wait for indexes and retrieves batches
-func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct{}, cancell context.CancelFunc) error {
+// ------------------- MAIN WRITING LOOP -------------------
+func (dr *dagReader) WriteNWI4(w io.Writer, updateCh <-chan struct{}, cancell context.CancelFunc, ctxx context.Context) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
-	var written uint64
-	nbr := 0
+	var nbr int
 
 	NbStripes := float64(dr.size) / (float64(dr.or+dr.par) * float64(dr.chunksize))
-	fmt.Fprintf(os.Stdout, "--------------- Number of stripes is : %.2f ----------------- \n", NbStripes)
-	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
+	fmt.Printf("--------------- Number of stripes is : %.2f -----------------\n", NbStripes)
+	fmt.Printf("XXXXXXX Begin of stripe retrieval : %s XXXXXXX\n", time.Now().String())
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			// Initial selection
+			// Handle initial skipping
 			if dr.toskip && len(linksparallel) == 0 {
 				if len(dr.retnext) < dr.or+dr.par {
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
@@ -2032,11 +2030,14 @@ func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct
 				if len(dr.retnext) == dr.or+dr.par {
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
-					close(doneRetnext) // signal retnext ready
 				}
 			} else {
-				// Wait for indexes
-				<-doneIndexes
+				// Wait for timer to update indexes
+				select {
+				case <-updateCh:
+				case <-ctxx.Done():
+					return nil
+				}
 
 				tocheck := nbr % (dr.or + dr.par)
 				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
@@ -2047,13 +2048,12 @@ func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct
 				if len(linksparallel) == dr.or {
 					// Start batch retrieval
 					doneChanR := make(chan nodeswithindexeswithtime, dr.or)
-					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-					defer cancel()
+					ctxBatch, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 
 					worker := func(nodepassed linkswithindexes) {
 						defer dr.wg.Done()
 						st := time.Now()
-						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+						node, _ := nodepassed.Link.GetNode(ctxBatch, dr.serv)
 						t := time.Since(st)
 						doneChanR <- nodeswithindexeswithtime{Node: node, Index: nodepassed.Index, t: t}
 					}
@@ -2065,6 +2065,7 @@ func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct
 
 					dr.wg.Wait()
 					close(doneChanR)
+					cancel()
 
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
@@ -2073,7 +2074,7 @@ func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct
 						if value.Index%(dr.or+dr.par) >= dr.or {
 							reconstruct = 1
 						}
-						fmt.Fprintf(os.Stdout, "Chunk Index: %d retrieved in %s\n", value.Index, value.t.String())
+						fmt.Printf("Chunk Index: %d retrieved in %s\n", value.Index, value.t.String())
 					}
 
 					if reconstruct == 1 {
@@ -2084,11 +2085,11 @@ func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct
 
 					for i, shard := range shards {
 						if i < dr.or {
-							if written+uint64(len(shard)) < dr.size {
+							if dr.written+uint64(len(shard)) < dr.size {
 								w.Write(shard)
-								written += uint64(len(shard))
+								dr.written += uint64(len(shard))
 							} else {
-								w.Write(shard[:dr.size-written])
+								w.Write(shard[:dr.size-dr.written])
 								dr.stop = true
 								cancell()
 								return nil
@@ -2107,10 +2108,37 @@ func (dr *dagReader) WriteNWI4(w io.Writer, doneRetnext, doneIndexes chan struct
 	return nil
 }
 
-// RetrieveAllSetNew3 fetches retnext links and updates indexes
-func (dr *dagReader) RetrieveAllSetNew4(w io.Writer, doneRetnext, doneIndexes chan struct{}) {
-	<-doneRetnext // wait until retnext is ready
+// ------------------- TIMER -------------------
+func (dr *dagReader) startTimerNew4(ctx context.Context, w io.Writer, updateCh chan struct{}) {
+	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
+	defer ticker.Stop()
 
+	// Immediate first update
+	dr.toskip = true
+	dr.updateIndexes(w)
+	select {
+	case updateCh <- struct{}{}:
+	default:
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Timer stopped")
+			return
+		case <-ticker.C:
+			dr.toskip = true
+			dr.updateIndexes(w)
+			select {
+			case updateCh <- struct{}{}:
+			default:
+			}
+		}
+	}
+}
+
+// ------------------- INDEX UPDATE -------------------
+func (dr *dagReader) updateIndexes(w io.Writer) {
 	ll := make([]int, 0)
 	doneChan := make(chan nodeswithindexeswithtime, dr.or)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
@@ -2152,36 +2180,5 @@ func (dr *dagReader) RetrieveAllSetNew4(w io.Writer, doneRetnext, doneIndexes ch
 
 	dr.retnext = make([]linkswithindexes, 0)
 	dr.Indexes = ll
-	close(doneIndexes) // signal indexes ready
+	fmt.Printf("Indexes updated at %s\n", time.Now().String())
 }
-
-// startTimerNew3 triggers periodic retrievals without busy-wait
-func (dr *dagReader) startTimerNew4(ctx context.Context, w io.Writer, cancell context.CancelFunc) {
-	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Println("Timer stopped")
-			return
-		case <-ticker.C:
-			doneIndexes := make(chan struct{})
-			doneRetnext := make(chan struct{})
-
-			fmt.Fprintf(os.Stdout, "--------------- TIMER UPDATE START ----------------- \n")
-			dr.toskip = true
-
-			go dr.RetrieveAllSetNew4(w, doneRetnext, doneIndexes)
-
-			select {
-			case <-doneIndexes:
-				fmt.Fprintf(os.Stdout, "--------------- TIMER UPDATE COMPLETE ----------------- \n")
-			case <-ctx.Done():
-				fmt.Println("Timer stopped during update")
-				return
-			}
-		}
-	}
-}
-
