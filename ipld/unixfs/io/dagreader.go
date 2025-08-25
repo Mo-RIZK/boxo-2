@@ -116,7 +116,7 @@ func NewDagReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter) (DagRe
 
 // AltReader creates a new reader object that reads the data represented by
 // the given node, using the passed in DAGService for data retrieval  with EC option.
-func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, par int, chunksize uint64, mechanism string) (DagReader, error) {
+func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, par int, chunksize uint64, mechanism string, interval float64) (DagReader, error) {
 	var size uint64
 	var mode os.FileMode
 	var modTime time.Time
@@ -155,7 +155,7 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 			if !ok {
 				return nil, mdag.ErrNotProtobuf
 			}
-			return AltReader(ctx, childpb, serv, or, par, chunksize, mechanism)
+			return AltReader(ctx, childpb, serv, or, par, chunksize, mechanism, interval)
 		case unixfs.TSymlink:
 			return nil, ErrCantReadSymlinks
 		default:
@@ -187,6 +187,7 @@ func AltReader(ctx context.Context, n ipld.Node, serv ipld.NodeGetter, or int, p
 		written:     0,
 		retnext:     make([]linkswithindexes, 0),
 		stop:        false,
+		interval:    interval,
 	}, nil
 }
 
@@ -242,6 +243,7 @@ type dagReader struct {
 	written          uint64
 	retnext          []linkswithindexes
 	stop             bool
+	interval         float64
 }
 
 // Mode returns the UnixFS file mode or 0 if not set.
@@ -982,7 +984,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 }
 
 func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell context.CancelFunc) {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
 
 	for {
