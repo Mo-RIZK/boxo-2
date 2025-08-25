@@ -206,7 +206,7 @@ func NewUnixfsFile(ctx context.Context, dserv ipld.DAGService, nd ipld.Node) (fi
 	}, nil
 }
 
-func NewUnixfsFileAlt(ctx context.Context, dserv ipld.DAGService, nd ipld.Node, or int, par int, chunksize uint64, mechanism string) (files.Node, error) {
+func NewUnixfsFileAlt(ctx context.Context, dserv ipld.DAGService, nd ipld.Node, or int, par int, chunksize uint64, mechanism string, interval float64) (files.Node, error) {
 	switch dn := nd.(type) {
 	case *dag.ProtoNode:
 		fsn, err := ft.FSNodeFromBytes(dn.Data())
@@ -226,7 +226,7 @@ func NewUnixfsFileAlt(ctx context.Context, dserv ipld.DAGService, nd ipld.Node, 
 		return nil, errors.New("unknown node type")
 	}
 
-	dr, err := uio.AltReader(ctx, nd, dserv, or, par, chunksize, mechanism)
+	dr, err := uio.AltReader(ctx, nd, dserv, or, par, chunksize, mechanism, interval)
 	if err != nil {
 		return nil, err
 	}
