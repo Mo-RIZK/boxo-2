@@ -688,7 +688,7 @@ func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 	go dr.startTimerNew3(ctxx, w, cancell)
 	err := dr.WriteNWI3(w, cancell)
-	
+
 	return err
 
 }
@@ -766,7 +766,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			if dr.toskip == true  && len(linksparallel) == 0 {
+			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
 				fmt.Fprintf(os.Stdout, "1111111111111111111 \n")
 				if len(dr.retnext) < dr.or+dr.par {
 					fmt.Fprintf(os.Stdout, "2222222222 \n")
@@ -779,11 +779,11 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 				}
 			} else {
 				for len(dr.Indexes) != dr.or {
-					fmt.Fprintf(os.Stdout, "444444 %t 4444444 \n", dr.stop)
 					if dr.stop == true {
 						return nil
 					}
 				}
+				fmt.Fprintf(os.Stdout, "TO writeeeeeeeeee here the dr indexes are filled \n")
 				countchecked++
 				st := time.Now()
 				tocheck := nbr % (dr.or + dr.par)
@@ -792,7 +792,6 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 					linksparallel = append(linksparallel, topass)
 				}
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
-					dr.mu.Lock()
 					countchecked = 0
 					fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
 					stt := time.Now()
@@ -874,7 +873,6 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 						}
 					}
 					linksparallel = make([]linkswithindexes, 0)
-					dr.mu.Unlock()
 				}
 			}
 			nbr++
@@ -891,13 +889,11 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 	st := time.Now()
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	for len(dr.retnext) != dr.or+dr.par {
-		if dr.stop == true {
-			return
-		}
 		fmt.Fprintf(os.Stdout, "5555555555555 \n")
 	}
-	dr.mu.Lock()
-	defer dr.mu.Unlock()
+	if dr.stop == true {
+		return
+	}
 	dr.Indexes = make([]int, 0)
 	//open channel with context
 	doneChan := make(chan nodeswithindexeswithtime, dr.or)
