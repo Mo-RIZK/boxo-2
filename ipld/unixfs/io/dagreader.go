@@ -686,7 +686,6 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 
 func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
-
 	go dr.startTimerNew3(ctxx, w, cancell)
 	err := dr.WriteNWI3(w, cancell)
 	
@@ -767,16 +766,20 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 	fmt.Fprintf(os.Stdout, "XXXXXXX Begin of stripe retrieval : %s XXXXXXX \n", time.Now().String())
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			if (dr.toskip == true || (len(dr.retnext) > 0 && len(dr.retnext) < dr.or+dr.par)) && len(linksparallel) == 0 {
+			if dr.toskip == true  && len(linksparallel) == 0 {
+				fmt.Fprintf(os.Stdout, "1111111111111111111 \n")
 				if len(dr.retnext) < dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "2222222222 \n")
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					dr.retnext = append(dr.retnext, topass)
 				}
 				if len(dr.retnext) == dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "33333333333333 \n")
 					dr.toskip = false
 				}
 			} else {
 				for len(dr.Indexes) != dr.or {
+					fmt.Fprintf(os.Stdout, "444444 %t 4444444 \n", dr.stop)
 					if dr.stop == true {
 						return nil
 					}
@@ -791,6 +794,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
 					dr.mu.Lock()
 					countchecked = 0
+					fmt.Fprintf(os.Stdout, "XXXXXXX Preparing the next set of cids before requesting them took : %s XXXXXXX \n", time.Since(st).String())
 					stt := time.Now()
 					//open channel with context
 					doneChanR := make(chan nodeswithindexeswithtime, dr.or)
@@ -800,6 +804,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc) error {
 					defer cancel() // Ensure context is cancelled when batch is done
 					//start n+k gourotines and start retrieving parallel nodes
 					worker := func(nodepassed linkswithindexes) {
+						st := time.Now()
 						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 						t := time.Since(st)
 						dr.muworker.Lock()
@@ -889,6 +894,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 		if dr.stop == true {
 			return
 		}
+		fmt.Fprintf(os.Stdout, "5555555555555 \n")
 	}
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
@@ -898,6 +904,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 	// Create a new context with cancellation for this batch
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	wrote := 0
+	fmt.Fprintf(os.Stdout, "66666666666666666666 \n")
 	defer cancel() // Ensure context is cancelled when batch is done
 	//start n+k gourotines and start retrieving parallel nodes
 	worker := func(ctx context.Context, cancel context.CancelFunc, nodepassed linkswithindexes) {
@@ -971,12 +978,11 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc)
 		}
 	}
 	dr.retnext = make([]linkswithindexes, 0)
-	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes is : %s XXXXXXX \n", time.Since(st).String())
+	fmt.Fprintf(os.Stdout, "XXXXXXX The time taken to update the indexes with preparing the chunks in memory is : %s XXXXXXX \n", time.Since(st).String())
 	return
 }
 
 func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell context.CancelFunc) {
-	fmt.Fprintf(os.Stdout, "---------------The interval is : %f ----------------- \n",dr.interval)
 	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
 
