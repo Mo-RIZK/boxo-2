@@ -1351,7 +1351,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					// Place the node's raw data into the correct index in shards
 					dr.Indexes = append(dr.Indexes, value.Index)
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
-					if value.Index%(dr.or+dr.par) >= dr.or {
+					if value.Index >= dr.or {
 						reconstruct = 1
 					}
 					//dr.writeNodeDataBuffer(w)
