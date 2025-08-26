@@ -1220,21 +1220,49 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					fmt.Fprintf(os.Stdout, "AAAAAAAAAAAA It takes %s to fill the links parallel and pass others \n", time.Since(tt))
 					countchecked = 0
 					//open channel with context
-					doneChanR := make(chan nodeswithindexeswithtime, dr.or)
+					doneChanR := make(chan nodeswithindexes, dr.or)
 					// Create a new context with cancellation for this batch
 					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 					wrote := 0
 					//start n+k gourotines and start retrieving parallel nodes
-					dr.wg.Add(dr.or)
-					for _, topass := range linksparallel {
-						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &dr.mu, &dr.wg)
+
+
+
+					defer cancel() // Ensure context is cancelled when batch is done
+					//start n+k gourotines and start retrieving parallel nodes
+					worker := func(nodepassed linkswithindexes) {
+						node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+						dr.mu.Lock()
+						defer dr.mu.Unlock()
+						select {
+						case <-ctx.Done():
+							// Context cancelled, goroutine terminates early
+							if ctx.Err() == context.DeadlineExceeded {
+								fmt.Println("Timeout reached")
+								dr.ctx.Done()
+							}
+							return
+						default:
+							wrote++
+							doneChanR <- nodeswithindexes{Node: node, Index: nodepassed.Index}
+							if wrote == dr.or {
+								cancel()
+							}
+							dr.wg.Done()
+						}
 					}
+					dr.wg.Add(dr.or)
+					for i, link := range linksparallel {
+						topass := linkswithindexes{Link: link.Link, Index: i}
+						go worker(topass)
+					}
+
 					//wait
-					dr.wg.Wait() //take from done channel
+					dr.wg.Wait()
+					//take from done channel
 					close(doneChanR)
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
-					too := time.Now()
 					for value := range doneChanR {
 						// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 						// Place the node's raw data into the correct index in shards
@@ -1244,7 +1272,6 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						}
 						//dr.writeNodeDataBuffer(w)
 					}
-					fmt.Fprintf(os.Stdout, "DDDDDDDDDDDDDDDD It takes %s to read from channel \n", time.Since(too))
 					if reconstruct == 1 {
 						dr.recnostructtimes++
 						start := time.Now()
@@ -1274,36 +1301,61 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				}
 			}
 			if sixnine {
-				/////////////////////////////////////////
 				countchecked = 0
-				stt := time.Now()
 				//open channel with context
-				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
+				doneChanR := make(chan nodeswithindexes, dr.or)
 				// Create a new context with cancellation for this batch
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 				wrote := 0
 				//start n+k gourotines and start retrieving parallel nodes
-				dr.wg.Add(dr.or)
-				for _, topass := range dr.retnext {
-					go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &dr.mu, &dr.wg)
+
+
+
+				defer cancel() // Ensure context is cancelled when batch is done
+				//start n+k gourotines and start retrieving parallel nodes
+				worker := func(nodepassed linkswithindexes) {
+					node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
+					dr.mu.Lock()
+					defer dr.mu.Unlock()
+					select {
+					case <-ctx.Done():
+						// Context cancelled, goroutine terminates early
+						if ctx.Err() == context.DeadlineExceeded {
+							fmt.Println("Timeout reached")
+							dr.ctx.Done()
+						}
+						return
+					default:
+						wrote++
+						doneChanR <- nodeswithindexes{Node: node, Index: nodepassed.Index}
+						if wrote == dr.or {
+							cancel()
+						}
+						dr.wg.Done()
+					}
 				}
+				dr.wg.Add(dr.or)
+				for i, link := range dr.retnext {
+					topass := linkswithindexes{Link: link.Link, Index: i}
+					go worker(topass)
+				}
+
 				//wait
 				dr.wg.Wait()
-				fmt.Fprintf(os.Stdout, "5555555555 Retrieving the next set of chunks related to cids took : %s 55555555555 \n", time.Since(stt).String())
 				//take from done channel
 				close(doneChanR)
 				shards := make([][]byte, dr.or+dr.par)
 				reconstruct := 0
-				to := time.Now()
 				for value := range doneChanR {
+					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
+					// Place the node's raw data into the correct index in shards
 					dr.Indexes = append(dr.Indexes, value.Index)
-					dr.times = append(dr.times, value.t)
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if value.Index%(dr.or+dr.par) >= dr.or {
 						reconstruct = 1
 					}
+					//dr.writeNodeDataBuffer(w)
 				}
-				fmt.Fprintf(os.Stdout, "CCCCCCCCCCCCCCC It takes %s to read from channel and update indexes \n", time.Since(to))
 				if reconstruct == 1 {
 					dr.recnostructtimes++
 					start := time.Now()
@@ -1332,8 +1384,6 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				linksparallel = make([]linkswithindexes, 0)
 				dr.retnext = make([]linkswithindexes, 0)
 				sixnine = false
-
-				/////////////////////////////////////////
 			}
 
 			nbr++
