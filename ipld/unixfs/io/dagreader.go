@@ -1224,14 +1224,13 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					// Create a new context with cancellation for this batch
 					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 					wrote := 0
-					var mu sync.Mutex
 					//start n+k gourotines and start retrieving parallel nodes
 					dr.wg.Add(dr.or)
 					for _, topass := range linksparallel {
-						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu, &dr.wg)
+						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &dr.mu, &dr.wg)
 					}
 					//wait
-					dr.wg.Wait()//take from done channel
+					dr.wg.Wait() //take from done channel
 					close(doneChanR)
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
@@ -1257,7 +1256,6 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						en := time.Now()
 						dr.verificationTime += en.Sub(st)
 					}
-					dr.mu.Lock()
 					for i, shard := range shards {
 						if i < dr.or {
 							if written+uint64(len(shard)) < dr.size {
@@ -1268,12 +1266,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
-								dr.mu.Unlock()
 								return nil
 							}
 						}
 					}
-					dr.mu.Unlock()
 					linksparallel = make([]linkswithindexes, 0)
 				}
 			}
@@ -1286,11 +1282,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				// Create a new context with cancellation for this batch
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 				wrote := 0
-				var mu sync.Mutex
 				//start n+k gourotines and start retrieving parallel nodes
 				dr.wg.Add(dr.or)
 				for _, topass := range dr.retnext {
-					go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu, &dr.wg)
+					go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &dr.mu, &dr.wg)
 				}
 				//wait
 				dr.wg.Wait()
@@ -1320,7 +1315,6 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					en := time.Now()
 					dr.verificationTime += en.Sub(st)
 				}
-				dr.mu.Lock()
 				for i, shard := range shards {
 					if i < dr.or {
 						if written+uint64(len(shard)) < dr.size {
@@ -1331,12 +1325,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							w.Write(towrite)
 							dr.stop = true
 							cancell()
-							dr.mu.Unlock()
 							return nil
 						}
 					}
 				}
-				dr.mu.Unlock()
 				linksparallel = make([]linkswithindexes, 0)
 				dr.retnext = make([]linkswithindexes, 0)
 				sixnine = false
