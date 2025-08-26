@@ -1426,7 +1426,7 @@ func (dr *dagReader) startTimerNew5(ctx context.Context) {
 
 
 
-func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
+func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0, dr.or)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
