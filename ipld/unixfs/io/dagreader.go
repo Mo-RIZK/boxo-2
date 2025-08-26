@@ -754,8 +754,8 @@ func contains(slice []int, value int) bool {
 
 func (dr *dagReader) WriteNWID3(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
-	nextready := make(chan struct{})
-	indexesready := make(chan struct{})
+	nextready := make(chan struct{},1)
+	indexesready := make(chan struct{},1)
 	go dr.startTimerNew3(ctxx, w, cancell, nextready, indexesready)
 	err := dr.WriteNWI3(w, cancell, nextready, indexesready)
 
@@ -931,6 +931,9 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc,
 		}
 	}
 	dr.wg.Add(dr.or)
+	select {
+	case <-nextready:
+	}
 	for i, link := range dr.retnext {
 		topass := linkswithindexes{Link: link.Link, Index: i}
 		go worker(ctx, cancel, topass)
@@ -1007,9 +1010,6 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell co
 				return
 			}
 			dr.toskip = true
-			select {
-			case <-nextready:
-			}
 			fmt.Fprintf(os.Stdout, "66666666 time taken timer waiting until next set is ready by the first thread is %s 66666666 \n", time.Since(ttt))
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
 			dr.RetrieveAllSetNew3(w, cancell, nextready, indexesready)
