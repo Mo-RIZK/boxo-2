@@ -1467,7 +1467,6 @@ func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
 
 					for i, link := range linksparallel {
 						go func(lp linkswithindexes, idx int) {
-							defer dr.wg.Done()
 							node, _ := lp.Link.GetNode(ctx, dr.serv)
 							dr.mu.Lock()
 							defer dr.mu.Unlock()
@@ -1480,6 +1479,7 @@ func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
 								if wrote == dr.or {
 									cancel()
 								}
+								dr.wg.Done()
 							}
 						}(link, i)
 					}
@@ -1536,7 +1536,6 @@ func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
 
 				for i, link := range dr.retnext {
 					go func(lp linkswithindexes, idx int) {
-						defer dr.wg.Done()
 						node, _ := lp.Link.GetNode(ctx, dr.serv)
 						dr.mu.Lock()
 						defer dr.mu.Unlock()
@@ -1549,6 +1548,7 @@ func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
 							if wrote == dr.or {
 								cancel()
 							}
+							dr.wg.Done()
 						}
 					}(link, i)
 				}
