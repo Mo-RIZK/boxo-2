@@ -1427,135 +1427,138 @@ func (dr *dagReader) startTimerNew5(ctx context.Context) {
 
 
 func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
-    enc, _ := reedsolomon.New(dr.or, dr.par)
-    var written uint64
-    var countchecked int
-    var nbr int
+	enc, _ := reedsolomon.New(dr.or, dr.par)
+	var written uint64
+	var countchecked, nbr int
+	var sixnine bool
+	var fillWithNoIndexes, fillWithIndexes time.Duration
 
-    linksparallel := make([]linkswithindexes, 0, dr.or)
-    var fillWithIndexes, fillWithNoIndexes time.Duration
+	linksparallel := make([]linkswithindexes, 0, dr.or)
+	retnext := make([]linkswithindexes, 0, dr.or+dr.par)
 
-    processBatch := func(links []linkswithindexes, useIndexes bool) error {
-        start := time.Now()
-        ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-        defer cancel()
+	writeBatch := func(links []linkswithindexes) {
+		if len(links) == 0 {
+			return
+		}
 
-        doneChanR := make(chan nodeswithindexes, dr.or)
-        var wrote int
-        dr.wg.Add(dr.or)
+		doneChan := make(chan nodeswithindexes, dr.or)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
 
-        for i, link := range links {
-            go func(idx int, l linkswithindexes) {
-                defer dr.wg.Done()
-                node, err := l.Link.GetNode(ctx, dr.serv)
-                if err != nil {
-                    return
-                }
-                select {
-                case <-ctx.Done():
-                    return
-                default:
-                    wrote++
-                    doneChanR <- nodeswithindexes{Node: node, Index: idx}
-                    if wrote == dr.or {
-                        cancel()
-                    }
-                }
-            }(i, link)
-        }
+		wrote := 0
+		dr.wg.Add(dr.or)
 
-        dr.wg.Wait()
-        close(doneChanR)
+		worker := func(nodepassed linkswithindexes) {
+			defer dr.wg.Done()
+			node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 
-        shards := make([][]byte, dr.or+dr.par)
-        reconstruct := false
+			select {
+			case <-ctx.Done():
+				if ctx.Err() == context.DeadlineExceeded {
+					fmt.Println("Timeout reached")
+					dr.ctx.Done()
+				}
+				return
+			default:
+				wrote++
+				doneChan <- nodeswithindexes{Node: node, Index: nodepassed.Index}
+				if wrote == dr.or {
+					cancel()
+				}
+			}
+		}
 
-        for value := range doneChanR {
-            if useIndexes {
-                dr.Indexes = append(dr.Indexes, value.Index)
-            }
-            shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
-            if value.Index >= dr.or {
-                reconstruct = true
-            }
-        }
+		for i, link := range links {
+			go worker(linkswithindexes{Link: link.Link, Index: i})
+		}
 
-        if reconstruct {
-            dr.recnostructtimes++
-            t1 := time.Now()
-            enc.Reconstruct(shards)
-            dr.timetakenDecode += time.Since(t1)
+		dr.wg.Wait()
+		close(doneChan)
 
-            t2 := time.Now()
-            enc.Verify(shards)
-            dr.verificationTime += time.Since(t2)
-        }
+		shards := make([][]byte, dr.or+dr.par)
+		reconstruct := 0
+		for value := range doneChan {
+			shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
+			if value.Index >= dr.or {
+				reconstruct = 1
+			}
+		}
 
-        for i := 0; i < dr.or && written < dr.size; i++ {
-            shard := shards[i]
-            if shard == nil {
-                continue
-            }
-            remaining := dr.size - written
-            if uint64(len(shard)) > remaining {
-                shard = shard[:remaining]
-                dr.stop = true
-                cancell()
-            }
-            if _, err := w.Write(shard); err != nil {
-                return err
-            }
-            written += uint64(len(shard))
-        }
+		if reconstruct == 1 {
+			dr.recnostructtimes++
+			start := time.Now()
+			enc.Reconstruct(shards)
+			dr.timetakenDecode += time.Since(start)
 
-        if useIndexes {
-            fillWithIndexes += time.Since(start)
-        } else {
-            fillWithNoIndexes += time.Since(start)
-        }
+			startVerify := time.Now()
+			enc.Verify(shards)
+			dr.verificationTime += time.Since(startVerify)
+		}
 
-        return nil
-    }
+		for i, shard := range shards {
+			if i >= dr.or {
+				continue
+			}
+			if written+uint64(len(shard)) <= dr.size {
+				w.Write(shard)
+				written += uint64(len(shard))
+			} else {
+				w.Write(shard[:dr.size-written])
+				dr.stop = true
+				cancell()
+				fmt.Fprintf(os.Stdout, "Time fillWithIndexes: %s, fillWithNoIndexes: %s\n", fillWithIndexes, fillWithNoIndexes)
+				return
+			}
+		}
+	}
 
-    for _, n := range dr.nodesToExtr {
-        for _, l := range n.Links() {
-            if dr.toskip && len(linksparallel) == 0 && countchecked == 0 {
-                if len(dr.retnext) < dr.or+dr.par {
-                    dr.retnext = append(dr.retnext, linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)})
-                }
-                if len(dr.retnext) == dr.or+dr.par {
-                    dr.Indexes = dr.Indexes[:0]
-                    dr.toskip = false
-                    if err := processBatch(dr.retnext, true); err != nil {
-                        return err
-                    }
-                    dr.retnext = dr.retnext[:0]
-                }
-            } else {
-                countchecked++
-                idx := nbr % (dr.or + dr.par)
-                if contains(dr.Indexes, idx) && len(linksparallel) < dr.or {
-                    linksparallel = append(linksparallel, linkswithindexes{Link: l, Index: idx})
-                }
-                if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
-                    if err := processBatch(linksparallel, false); err != nil {
-                        return err
-                    }
-                    linksparallel = linksparallel[:0]
-                    countchecked = 0
-                }
-            }
-            nbr++
-            if dr.stop {
-                break
-            }
-        }
-    }
+	for _, n := range dr.nodesToExtr {
+		for _, l := range n.Links() {
+			if dr.toskip && len(retnext) == 0 && countchecked == 0 {
+				ttt := time.Now()
+				if len(retnext) < dr.or+dr.par {
+					retnext = append(retnext, linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)})
+				}
+				if len(retnext) == dr.or+dr.par {
+					dr.Indexes = dr.Indexes[:0]
+					dr.toskip = false
+					sixnine = true
+					fillWithIndexes += time.Since(ttt)
+					fmt.Printf("Filled retNext in %s\n", time.Since(ttt))
+				}
+			} else {
+				tt := time.Now()
+				countchecked++
+				tocheck := nbr % (dr.or + dr.par)
+				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
+					linksparallel = append(linksparallel, linkswithindexes{Link: l, Index: tocheck})
+				}
 
-    dr.stop = true
-    cancell()
-    dr.ctx.Done()
-    fmt.Fprintf(os.Stdout, "Time with indexes: %s, without indexes: %s\n", fillWithIndexes, fillWithNoIndexes)
-    return nil
+				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
+					fillWithNoIndexes += time.Since(tt)
+					countchecked = 0
+					writeBatch(linksparallel)
+					linksparallel = linksparallel[:0]
+				}
+			}
+
+			if sixnine {
+				countchecked = 0
+				writeBatch(retnext)
+				retnext = retnext[:0]
+				linksparallel = linksparallel[:0]
+				sixnine = false
+			}
+
+			nbr++
+		}
+	}
+
+	dr.stop = true
+	cancell()
+	dr.ctx.Done()
+	fmt.Fprintf(os.Stdout, "Time fillWithIndexes: %s, fillWithNoIndexes: %s\n", fillWithIndexes, fillWithNoIndexes)
+	return nil
 }
+
 
