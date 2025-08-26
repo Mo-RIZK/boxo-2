@@ -453,7 +453,7 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 		}
 		if dr.mechanism == "ECWID" {
 			//dr.WriteNWID(w)
-			dr.WriteNWID4(w)
+			dr.WriteNWID5(w)
 			//fmt.Fprintf(os.Stdout, "Time taken to reconstruct nodes : %s \n", dr.timetakenDecode.String())
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
@@ -990,7 +990,7 @@ func (dr *dagReader) WriteNWI4(w io.Writer, cancell context.CancelFunc, nextread
 					//start n+k gourotines and start retrieving parallel nodes
 					wg.Add(dr.or)
 					for _, topass := range linksparallel {
-						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu,&wg)
+						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu, &wg)
 					}
 					//wait
 					wg.Wait()
@@ -1062,7 +1062,7 @@ func (dr *dagReader) RetrieveAllSetNew4(w io.Writer, cancell context.CancelFunc,
 	wg.Add(dr.or)
 	for i, link := range dr.retnext {
 		topass := linkswithindexes{Link: link.Link, Index: i}
-		go dr.worker(ctx, cancel, doneChan, topass, &wrote, &mu,&wg)
+		go dr.worker(ctx, cancel, doneChan, topass, &wrote, &mu, &wg)
 	}
 
 	//wait
@@ -1146,7 +1146,7 @@ func (dr *dagReader) startTimerNew4(ctx context.Context, w io.Writer, cancell co
 	}
 }
 
-func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, doneChanR chan nodeswithindexeswithtime, nodepassed linkswithindexes, wrote *int, mu *sync.Mutex,wg *sync.WaitGroup) {
+func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, doneChanR chan nodeswithindexeswithtime, nodepassed linkswithindexes, wrote *int, mu *sync.Mutex, wg *sync.WaitGroup) {
 	st := time.Now()
 	node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 	t := time.Since(st)
@@ -1176,45 +1176,24 @@ func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, done
 //////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 
-func (dr *dagReader) workerwithnochannel(ctx context.Context, cancel context.CancelFunc, nodepassed linkswithindexes, wrote *int, mu *sync.Mutex) {
-	nodepassed.Link.GetNode(ctx, dr.serv)
-	mu.Lock()
-	defer mu.Unlock()
-	select {
-	case <-ctx.Done():
-		// Context cancelled, goroutine terminates early
-		if ctx.Err() == context.DeadlineExceeded {
-			fmt.Println("Timeout reached")
-			dr.ctx.Done()
-		}
-		return
-	default:
-		*wrote++
-		if *wrote == dr.or {
-			cancel()
-		}
-		dr.wg.Done()
-	}
-}
 
 func (dr *dagReader) WriteNWID5(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
-	nextready := make(chan struct{}, 1)
-	indexesready := make(chan struct{}, 1)
-	go dr.startTimerNew5(ctxx, w, cancell, nextready, indexesready)
-	err := dr.WriteNWI5(w, cancell, nextready, indexesready)
+	go dr.startTimerNew5(ctxx)
+	err := dr.WriteNWI5(w, cancell)
 
 	return err
 
 }
 
-func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, nextready chan struct{}, indexesready chan struct{}) error {
+func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
 	countchecked := 0
 	nbr := 0
+	sixnine := false  
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
@@ -1229,18 +1208,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, nextread
 					fmt.Fprintf(os.Stdout, "3333333 %s 3333333 \n", time.Now().String())
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
-					nextready <- struct{}{}
+					sixnine = true
 				}
 			} else {
 				tt := time.Now()
-				if dr.stop == true {
-					return nil
-				}
-				if len(dr.Indexes) != dr.or {
-					select {
-					case <-indexesready:
-					}
-				}
 				fmt.Fprintf(os.Stdout, "4444444 wait until indexes are ready took %s 444444 \n", time.Since(tt))
 				countchecked++
 				tocheck := nbr % (dr.or + dr.par)
@@ -1260,7 +1231,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, nextread
 					//start n+k gourotines and start retrieving parallel nodes
 					dr.wg.Add(dr.or)
 					for _, topass := range linksparallel {
-						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu,&dr.wg)
+						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu, &dr.wg)
 					}
 					//wait
 					dr.wg.Wait()
@@ -1309,6 +1280,72 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, nextread
 					linksparallel = make([]linkswithindexes, 0)
 				}
 			}
+			if sixnine {
+				/////////////////////////////////////////
+				countchecked = 0
+				stt := time.Now()
+				//open channel with context
+				doneChanR := make(chan nodeswithindexeswithtime, dr.or)
+				// Create a new context with cancellation for this batch
+				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+				wrote := 0
+				var mu sync.Mutex
+				//start n+k gourotines and start retrieving parallel nodes
+				dr.wg.Add(dr.or)
+				for _, topass := range dr.retnext {
+					go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu, &dr.wg)
+				}
+				//wait
+				dr.wg.Wait()
+				fmt.Fprintf(os.Stdout, "5555555555 Retrieving the next set of chunks related to cids took : %s 55555555555 \n", time.Since(stt).String())
+				//take from done channel
+				close(doneChanR)
+				shards := make([][]byte, dr.or+dr.par)
+				reconstruct := 0
+				for value := range doneChanR {
+					dr.Indexes = append(dr.Indexes, value.Index)
+					dr.times = append(dr.times, value.t)
+					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
+					if value.Index%(dr.or+dr.par) >= dr.or {
+						reconstruct = 1
+					}
+				}
+				if reconstruct == 1 {
+					dr.recnostructtimes++
+					start := time.Now()
+					enc.Reconstruct(shards)
+					end := time.Now()
+					dr.timetakenDecode += end.Sub(start)
+					st := time.Now()
+					enc.Verify(shards)
+					en := time.Now()
+					dr.verificationTime += en.Sub(st)
+				}
+				dr.mu.Lock()
+				for i, shard := range shards {
+					if i < dr.or {
+						if written+uint64(len(shard)) < dr.size {
+							w.Write(shard)
+							written += uint64(len(shard))
+						} else {
+							towrite := shard[0 : dr.size-written]
+							w.Write(towrite)
+							dr.stop = true
+							cancell()
+							dr.mu.Unlock()
+							return nil
+						}
+					}
+				}
+				dr.mu.Unlock()
+				linksparallel = make([]linkswithindexes, 0)
+				dr.retnext = make([]linkswithindexes, 0)
+				sixnine = false
+				
+				/////////////////////////////////////////
+			}
+			
+			
 			nbr++
 
 		}
@@ -1319,41 +1356,9 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, nextread
 	return nil
 }
 
-func (dr *dagReader) RetrieveAllSetNew5(w io.Writer, cancell context.CancelFunc, nextready chan struct{}, indexesready chan struct{}) {
-	//open channel with context
-	doneChan := make(chan nodeswithindexeswithtime, dr.or)
-	// Create a new context with cancellation for this batch
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	wrote := 0
-	var mu sync.Mutex
-	//start n+k gourotines and start retrieving parallel nodes
-	dr.wg.Add(dr.or)
-	for i, link := range dr.retnext {
-		topass := linkswithindexes{Link: link.Link, Index: i}
-		go dr.workerwithnochannel(ctx, cancel, topass, &wrote, &mu)
-	}
-
-	//wait
-	dr.wg.Wait()
-	//take from done channel
-	close(doneChan)
-	for value := range doneChan {
-		dr.Indexes = append(dr.Indexes, value.Index)
-		dr.times = append(dr.times, value.t)
-	}
-	dr.mu.Lock()
-	dr.retnext = make([]linkswithindexes, 0) //remove from here
-	indexesready <- struct{}{}
-	return
-}
-
-func (dr *dagReader) startTimerNew5(ctx context.Context, w io.Writer, cancell context.CancelFunc, nextready chan struct{}, indexesready chan struct{}) {
+func (dr *dagReader) startTimerNew5(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
-	select {
-	case <-nextready:
-	}
-	dr.RetrieveAllSetNew5(w, cancell, nextready, indexesready)
 	for {
 		select {
 		case <-ctx.Done():
@@ -1362,19 +1367,10 @@ func (dr *dagReader) startTimerNew5(ctx context.Context, w io.Writer, cancell co
 		case <-ticker.C:
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
-			ttt := time.Now()
 			if dr.stop == true {
-				close(nextready)
-				close(indexesready)
 				return
 			}
 			dr.toskip = true
-			select {
-			case <-nextready:
-			}
-			fmt.Fprintf(os.Stdout, "66666666 time taken timer waiting until next set is ready by the first thread is %s 66666666 \n", time.Since(ttt))
-			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
-			dr.RetrieveAllSetNew5(w, cancell, nextready, indexesready)
 		}
 	}
 }
