@@ -1483,11 +1483,11 @@ func (dr *dagReader) WriteNWI6(w io.Writer, cancell context.CancelFunc) error {
         if reconstruct {
             dr.recnostructtimes++
             t1 := time.Now()
-            _ = enc.Reconstruct(shards)
+            enc.Reconstruct(shards)
             dr.timetakenDecode += time.Since(t1)
 
             t2 := time.Now()
-            _ = enc.Verify(shards)
+            enc.Verify(shards)
             dr.verificationTime += time.Since(t2)
         }
 
