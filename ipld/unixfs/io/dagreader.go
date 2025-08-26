@@ -931,6 +931,7 @@ func (dr *dagReader) RetrieveAllSetNew3(w io.Writer, cancell context.CancelFunc,
 		}
 	}
 	dr.wg.Add(dr.or)
+	dr.toskip = true
 	select {
 	case <-nextready:
 	}
@@ -1008,7 +1009,6 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell co
 				close(indexesready)
 				return
 			}
-			dr.toskip = true
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
 			dr.RetrieveAllSetNew3(w, cancell, nextready, indexesready)
 		}
