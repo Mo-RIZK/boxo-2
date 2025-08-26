@@ -1221,7 +1221,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				}
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
 					fmt.Fprintf(os.Stdout, "AAAAAAAAAAAA It takes %s to fill the links parallel and pass others \n", time.Since(tt))
-					fillwithnoindexes += time.Since(ttt)
+					fillwithnoindexes += time.Since(tt)
 					countchecked = 0
 					//open channel with context
 					doneChanR := make(chan nodeswithindexes, dr.or)
