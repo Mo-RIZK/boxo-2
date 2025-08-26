@@ -1176,7 +1176,6 @@ func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, done
 //////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 
-
 func (dr *dagReader) WriteNWID5(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 	go dr.startTimerNew5(ctxx)
@@ -1193,26 +1192,24 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	written = 0
 	countchecked := 0
 	nbr := 0
-	sixnine := false  
+	sixnine := false
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
-				fmt.Fprintf(os.Stdout, "1111111111 %s 111111111 \n", time.Now().String())
+				ttt := time.Now()
 				if len(dr.retnext) < dr.or+dr.par {
-					fmt.Fprintf(os.Stdout, "222222 %s 2222 \n", time.Now().String())
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					dr.retnext = append(dr.retnext, topass)
 				}
 				if len(dr.retnext) == dr.or+dr.par {
-					fmt.Fprintf(os.Stdout, "3333333 %s 3333333 \n", time.Now().String())
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					sixnine = true
+					fmt.Fprintf(os.Stdout, "BBBBBBBBBBBBB It takes %s to fill the ret next \n", time.Since(ttt))
 				}
 			} else {
 				tt := time.Now()
-				fmt.Fprintf(os.Stdout, "4444444 wait until indexes are ready took %s 444444 \n", time.Since(tt))
 				countchecked++
 				tocheck := nbr % (dr.or + dr.par)
 				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
@@ -1220,8 +1217,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					linksparallel = append(linksparallel, topass)
 				}
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "AAAAAAAAAAAA It takes %s to fill the links parallel and pass others \n", time.Since(tt))
 					countchecked = 0
-					stt := time.Now()
 					//open channel with context
 					doneChanR := make(chan nodeswithindexeswithtime, dr.or)
 					// Create a new context with cancellation for this batch
@@ -1234,12 +1231,11 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu, &dr.wg)
 					}
 					//wait
-					dr.wg.Wait()
-					fmt.Fprintf(os.Stdout, "5555555555 Retrieving the next set of chunks related to cids took : %s 55555555555 \n", time.Since(stt).String())
-					//take from done channel
+					dr.wg.Wait()//take from done channel
 					close(doneChanR)
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
+					too := time.Now()
 					for value := range doneChanR {
 						// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 						// Place the node's raw data into the correct index in shards
@@ -1249,6 +1245,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						}
 						//dr.writeNodeDataBuffer(w)
 					}
+					fmt.Fprintf(os.Stdout, "DDDDDDDDDDDDDDDD It takes %s to read from channel \n", time.Since(too))
 					if reconstruct == 1 {
 						dr.recnostructtimes++
 						start := time.Now()
@@ -1302,6 +1299,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				close(doneChanR)
 				shards := make([][]byte, dr.or+dr.par)
 				reconstruct := 0
+				to := time.Now()
 				for value := range doneChanR {
 					dr.Indexes = append(dr.Indexes, value.Index)
 					dr.times = append(dr.times, value.t)
@@ -1310,6 +1308,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						reconstruct = 1
 					}
 				}
+				fmt.Fprintf(os.Stdout, "CCCCCCCCCCCCCCC It takes %s to read from channel and update indexes \n", time.Since(to))
 				if reconstruct == 1 {
 					dr.recnostructtimes++
 					start := time.Now()
@@ -1341,11 +1340,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				linksparallel = make([]linkswithindexes, 0)
 				dr.retnext = make([]linkswithindexes, 0)
 				sixnine = false
-				
+
 				/////////////////////////////////////////
 			}
-			
-			
+
 			nbr++
 
 		}
