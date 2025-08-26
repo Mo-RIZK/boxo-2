@@ -735,11 +735,14 @@ func (dr *dagReader) WriteNWIDPlusOne(w io.Writer) error {
 }
 
 func contains(slice []int, value int) bool {
+	tt := time.Now()
 	for _, v := range slice {
 		if v == value {
+			fmt.Fprintf(os.Stdout, "!!!!!!! contians took %s !!!!!!!!! \n", time.Since(tt))
 			return true
 		}
 	}
+	fmt.Fprintf(os.Stdout, "!!!!!!! contians took %s !!!!!!!!! \n", time.Since(tt))
 	return false
 }
 
@@ -771,14 +774,14 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc, nextread
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
-				fmt.Fprintf(os.Stdout, "1111111111 %s 111111111 \n",time.Now().String())
+				fmt.Fprintf(os.Stdout, "1111111111 %s 111111111 \n", time.Now().String())
 				if len(dr.retnext) < dr.or+dr.par {
-					fmt.Fprintf(os.Stdout, "222222 %s 2222 \n",time.Now().String())
+					fmt.Fprintf(os.Stdout, "222222 %s 2222 \n", time.Now().String())
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					dr.retnext = append(dr.retnext, topass)
 				}
 				if len(dr.retnext) == dr.or+dr.par {
-					fmt.Fprintf(os.Stdout, "3333333 %s 3333333 \n",time.Now().String())
+					fmt.Fprintf(os.Stdout, "3333333 %s 3333333 \n", time.Now().String())
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					nextready <- struct{}{}
@@ -793,7 +796,7 @@ func (dr *dagReader) WriteNWI3(w io.Writer, cancell context.CancelFunc, nextread
 					case <-indexesready:
 					}
 				}
-				fmt.Fprintf(os.Stdout, "4444444 wait until indexes are ready took %s 444444 \n",time.Since(tt))
+				fmt.Fprintf(os.Stdout, "4444444 wait until indexes are ready took %s 444444 \n", time.Since(tt))
 				countchecked++
 				tocheck := nbr % (dr.or + dr.par)
 				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
@@ -1007,7 +1010,7 @@ func (dr *dagReader) startTimerNew3(ctx context.Context, w io.Writer, cancell co
 			select {
 			case <-nextready:
 			}
-			fmt.Fprintf(os.Stdout, "66666666 time taken timer waiting until next set is ready by the first thread is %s 66666666 \n",time.Since(ttt))
+			fmt.Fprintf(os.Stdout, "66666666 time taken timer waiting until next set is ready by the first thread is %s 66666666 \n", time.Since(ttt))
 			fmt.Fprintf(os.Stdout, "---------------I WILLLL UPDATE THE INDEXES ----------------- \n")
 			dr.RetrieveAllSetNew3(w, cancell, nextready, indexesready)
 		}
