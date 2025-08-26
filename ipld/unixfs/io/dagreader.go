@@ -1180,7 +1180,7 @@ func (dr *dagReader) WriteNWID5(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
 	go dr.startTimerNew5(ctxx)
 	//err := dr.WriteNWI5(w, cancell)
-	err := dr.WriteNWI6(w, cancell)
+	err := dr.WriteNWI5(w, cancell)
 
 	return err
 
