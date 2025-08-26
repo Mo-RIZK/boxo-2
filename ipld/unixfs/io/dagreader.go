@@ -990,7 +990,7 @@ func (dr *dagReader) WriteNWI4(w io.Writer, cancell context.CancelFunc, nextread
 					//start n+k gourotines and start retrieving parallel nodes
 					wg.Add(dr.or)
 					for _, topass := range linksparallel {
-						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu)
+						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu,&wg)
 					}
 					//wait
 					wg.Wait()
@@ -1062,7 +1062,7 @@ func (dr *dagReader) RetrieveAllSetNew4(w io.Writer, cancell context.CancelFunc,
 	wg.Add(dr.or)
 	for i, link := range dr.retnext {
 		topass := linkswithindexes{Link: link.Link, Index: i}
-		go dr.worker(ctx, cancel, doneChan, topass, &wrote, &mu)
+		go dr.worker(ctx, cancel, doneChan, topass, &wrote, &mu,&wg)
 	}
 
 	//wait
@@ -1146,7 +1146,7 @@ func (dr *dagReader) startTimerNew4(ctx context.Context, w io.Writer, cancell co
 	}
 }
 
-func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, doneChanR chan nodeswithindexeswithtime, nodepassed linkswithindexes, wrote *int, mu *sync.Mutex) {
+func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, doneChanR chan nodeswithindexeswithtime, nodepassed linkswithindexes, wrote *int, mu *sync.Mutex,wg *sync.WaitGroup) {
 	st := time.Now()
 	node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
 	t := time.Since(st)
@@ -1166,7 +1166,7 @@ func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, done
 		if *wrote == dr.or {
 			cancel()
 		}
-		dr.wg.Done()
+		wg.Done()
 	}
 }
 
@@ -1260,7 +1260,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, nextread
 					//start n+k gourotines and start retrieving parallel nodes
 					dr.wg.Add(dr.or)
 					for _, topass := range linksparallel {
-						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu)
+						go dr.worker(ctx, cancel, doneChanR, topass, &wrote, &mu,&dr.wg)
 					}
 					//wait
 					dr.wg.Wait()
