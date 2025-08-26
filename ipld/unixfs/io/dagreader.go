@@ -1193,6 +1193,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	countchecked := 0
 	nbr := 0
 	sixnine := false
+	var fillwithnoindexes time.Duration
+	var fillwithindexes time.Duration
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
@@ -1206,6 +1208,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					sixnine = true
+					fillwithindexes += time.Since(ttt)
 					fmt.Fprintf(os.Stdout, "BBBBBBBBBBBBB It takes %s to fill the ret next \n", time.Since(ttt))
 				}
 			} else {
@@ -1218,6 +1221,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				}
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
 					fmt.Fprintf(os.Stdout, "AAAAAAAAAAAA It takes %s to fill the links parallel and pass others \n", time.Since(tt))
+					fillwithnoindexes += time.Since(ttt)
 					countchecked = 0
 					//open channel with context
 					doneChanR := make(chan nodeswithindexes, dr.or)
@@ -1293,6 +1297,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
+								fmt.Fprintf(os.Stdout, "The time taken to fill with indexes is: %s and the time taken to fill with no indexes is : %s \n", fillwithindexes.String(), fillwithnoindexes.String())
 								return nil
 							}
 						}
@@ -1376,6 +1381,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							towrite := shard[0 : dr.size-written]
 							w.Write(towrite)
 							dr.stop = true
+							fmt.Fprintf(os.Stdout, "The time taken to fill with indexes is: %s and the time taken to fill with no indexes is : %s \n", fillwithindexes.String(), fillwithnoindexes.String())
 							cancell()
 							return nil
 						}
@@ -1393,6 +1399,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	dr.stop = true
 	cancell()
 	dr.ctx.Done()
+	fmt.Fprintf(os.Stdout, "The time taken to fill with indexes is: %s and the time taken to fill with no indexes is : %s \n", fillwithindexes.String(), fillwithnoindexes.String())
 	return nil
 }
 
