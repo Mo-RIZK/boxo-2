@@ -1203,31 +1203,54 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	countchecked := 0
 	nbr := 0
 	sixnine := false
+	var checkstime time.Duration
+	var reconstructiontime time.Duration
+	var verificationtime time.Duration
+	var downloadsixninetime time.Duration
+	var downloadsixsixtime time.Duration
+	var readchanneltime time.Duration
+
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
+			st := time.Now()
 			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
+				checkstime += time.Since(st)
+				st1 :=time.Now()
 				if len(dr.retnext) < dr.or+dr.par {
+					checkstime += time.Since(st1)
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					dr.retnext = append(dr.retnext, topass)
 					fmt.Fprintf(os.Stdout, "Filled 1 in the retnext %s  \n", time.Now().Format("15:04:05.000"))
+				} else {
+					checkstime += time.Since(st1)
 				}
+				st2 := time.Now()
 				if len(dr.retnext) == dr.or+dr.par {
+					checkstime += time.Since(st2)
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					sixnine = true
 					fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
+				}else{
+					checkstime += time.Since(st2)
 				}
 			} else {
 				countchecked++
 				fmt.Fprintf(os.Stdout, "Check if the index of the current cid is included in the indexes to fill links parallel %s  \n", time.Now().Format("15:04:05.000"))
+				st3 := time.Now()
 				tocheck := nbr % (dr.or + dr.par)
 				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
+					checkstime += time.Since(st3)
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					linksparallel = append(linksparallel, topass)
 					fmt.Fprintf(os.Stdout, "It is in and filled %s  \n", time.Now().Format("15:04:05.000"))
+				}else{
+					checkstime += time.Since(st3)
 				}
+				st4 := time.Now()
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
+					checkstime += time.Since(st4)
 					fmt.Fprintf(os.Stdout, "Finished Filling links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					countchecked = 0
 					//open channel with context
@@ -1313,9 +1336,13 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					}
 					fmt.Fprintf(os.Stdout, "Finished writing links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					linksparallel = make([]linkswithindexes, 0)
+				}else{
+					checkstime += time.Since(st4)
 				}
 			}
+			st5 := time.Now()
 			if sixnine {
+				checkstime += time.Since(st5)
 				countchecked = 0
 				//open channel with context
 				doneChanR := make(chan nodeswithindexes, dr.or)
@@ -1402,10 +1429,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				linksparallel = make([]linkswithindexes, 0)
 				dr.retnext = make([]linkswithindexes, 0)
 				sixnine = false
+			}else{
+				checkstime += time.Since(st5)
 			}
-
 			nbr++
-
 		}
 	}
 	dr.stop = true
