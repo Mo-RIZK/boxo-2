@@ -1209,7 +1209,6 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	var downloadtimesixsix time.Duration
 	var downloadtimesixnine time.Duration
 	var readchanneltime time.Duration
-	dr.Indexes = []int{0, 1, 2}
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
@@ -1404,7 +1403,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				for value := range doneChanR {
 					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 					// Place the node's raw data into the correct index in shards
-					/////////////////////dr.Indexes = append(dr.Indexes, value.Index)
+					dr.Indexes = append(dr.Indexes, value.Index)
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if value.Index%(dr.or+dr.par) >= dr.or {
 						reconstruct = 1
