@@ -1288,9 +1288,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					}
 					dr.wg.Add(dr.or)
 					//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
-					for i, link := range linksparallel {
-						topass := linkswithindexes{Link: link.Link, Index: i}
-						go worker(topass)
+					for _, link := range linksparallel {
+						go worker(link)
 					}
 
 					//wait
@@ -1388,9 +1387,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				}
 				dr.wg.Add(dr.or)
 				//fmt.Fprintf(os.Stdout, "Start downloading retnext %s  \n", time.Now().Format("15:04:05.000"))
-				for i, link := range dr.retnext {
-					topass1 := linkswithindexes{Link: link.Link, Index: i}
-					go worker1(topass1)
+				for _, link := range dr.retnext {
+					go worker1(link)
 				}
 
 				//wait
