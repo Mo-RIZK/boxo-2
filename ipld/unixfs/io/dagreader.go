@@ -595,6 +595,11 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 // /////////////// Downloading all chunks and the fastest N chunks we retrieve we will be writing it to disk /////////////////////////
 func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	fmt.Fprintf(os.Stdout, "Start function  %s  \n", time.Now().Format("15:04:05.000"))
+	var downloadtime time.Duration
+	var writetime time.Duration
+	var Readchanneltime time.Duration
+	var checkandvertime time.Duration
+	nbver :=0
 
 	linksparallel := make([]*ipld.Link, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
@@ -638,7 +643,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				}
 				dr.wg.Add(dr.or)
 				fmt.Fprintf(os.Stdout, "Start downloading links parallel  %s  \n", time.Now().Format("15:04:05.000"))
-
+				st := time.Now()
 				for i, link := range linksparallel {
 					topass := linkswithindexes{Link: link, Index: i}
 					go worker(topass)
@@ -648,8 +653,10 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				dr.wg.Wait()
 				//take from done channel
 				close(doneChan)
+				downloadtime += time.Since(st)
 				shards := make([][]byte, dr.or+dr.par)
 				reconstruct := 0
+				r := time.Now()
 				for value := range doneChan {
 					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 					// Place the node's raw data into the correct index in shards
@@ -659,8 +666,11 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 					}
 					//dr.writeNodeDataBuffer(w)
 				}
+				Readchanneltime += time.Since(r)
 				fmt.Fprintf(os.Stdout, "Finished reading from channel and writing to shards and start reconstruction and verification links parallel   %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
+					nbver ++
+					v := time.Now()
 					dr.recnostructtimes++
 					start := time.Now()
 					enc.Reconstruct(shards)
@@ -670,8 +680,10 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 					enc.Verify(shards)
 					en := time.Now()
 					dr.verificationTime += en.Sub(st)
+					checkandvertime += time.Since(v)
 				}
 				fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
+				wr := time.Now()
 				for i, shard := range shards {
 					if i < dr.or {
 						if written+uint64(len(shard)) < dr.size {
@@ -684,11 +696,17 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 						}
 					}
 				}
+				writetime += time.Since(wr)
 				fmt.Fprintf(os.Stdout, "Finished writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
 				linksparallel = make([]*ipld.Link, 0)
 			}
 		}
 	}
+	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n",downloadtime.String())
+	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n",writetime.String())
+	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n",checkandvertime.String())
+	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n",nbver)
+	fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n",Readchanneltime.String())
 	return nil
 }
 
@@ -1211,6 +1229,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	var readchanneltime time.Duration
 	sixsixtime := 0
 	sixninetime := 0
+	nbver := 0
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
@@ -1293,7 +1312,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					//take from done channel
 					close(doneChanR)
 					downloadtimesixsix += time.Since(d)
-					sixsixtime ++
+					sixsixtime++
 					d1 := time.Now()
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
@@ -1310,6 +1329,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					readchanneltime += time.Since(d1)
 					//fmt.Fprintf(os.Stdout, "Finished reading from channel linksparallel and start reconstruction and verification links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					if reconstruct == 1 {
+						nbver ++
 						sss := time.Now()
 						dr.recnostructtimes++
 						start := time.Now()
@@ -1336,13 +1356,15 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
-								fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 								writetime += time.Since(wr)
-								fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
-								fmt.Fprintf(os.Stdout, "Download six six time is : %s with %d downloads  \n", downloadtimesixsix.String(),sixsixtime)
-								fmt.Fprintf(os.Stdout, "Download six nine time is : %s with %d downloads  \n", downloadtimesixnine.String(),sixninetime)
-								fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
+								fmt.Fprintf(os.Stdout, "New log download time six six is : %s  \n",downloadtimesixsix.String())
+								fmt.Fprintf(os.Stdout, "New log download time six nine is : %s  \n",downloadtimesixnine.String())
+								fmt.Fprintf(os.Stdout, "New log number of six six stripes is : %s  \n",sixsixtime)
+								fmt.Fprintf(os.Stdout, "New log number of six nine stripes is : %s  \n",sixninetime)
+								fmt.Fprintf(os.Stdout, "New log write time is : %s  \n",writetime.String())
+								fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n",checkstime.String())
+								fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n",nbver)
+								fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n",readchanneltime.String())
 								return nil
 							}
 						}
@@ -1399,7 +1421,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				//take from done channel
 				close(doneChanR)
 				downloadtimesixnine += time.Since(d2)
-				sixninetime ++
+				sixninetime++
 				d3 := time.Now()
 				//fmt.Fprintf(os.Stdout, "Finished downloading retnext and start reading from channel retnext %s  \n", time.Now().Format("15:04:05.000"))
 				shards := make([][]byte, dr.or+dr.par)
@@ -1417,6 +1439,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				readchanneltime += time.Since(d3)
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
+					nbver ++
 					sss1 := time.Now()
 					dr.recnostructtimes++
 					start := time.Now()
@@ -1442,13 +1465,15 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							w.Write(towrite)
 							dr.stop = true
 							cancell()
-							fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 							writetime += time.Since(wr1)
-							fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-							fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
-							fmt.Fprintf(os.Stdout, "Download six six time is : %s with %d downloads  \n", downloadtimesixsix.String(),sixsixtime)
-							fmt.Fprintf(os.Stdout, "Download six nine time is : %s with %d downloads  \n", downloadtimesixnine.String(),sixninetime)
-							fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
+							fmt.Fprintf(os.Stdout, "New log download time six six is : %s  \n",downloadtimesixsix.String())
+							fmt.Fprintf(os.Stdout, "New log download time six nine is : %s  \n",downloadtimesixnine.String())
+							fmt.Fprintf(os.Stdout, "New log bumber of six six stripes is : %s  \n",sixsixtime)
+							fmt.Fprintf(os.Stdout, "New log bumber of six nine stripes is : %s  \n",sixninetime)
+							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n",writetime.String())
+							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n",checkstime.String())
+							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n",nbver)
+							fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n",readchanneltime.String())
 							return nil
 						}
 					}
@@ -1466,12 +1491,14 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	dr.stop = true
 	cancell()
 	dr.ctx.Done()
-	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
-	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
-	fmt.Fprintf(os.Stdout, "Download six six time is : %s with %d downloads  \n", downloadtimesixsix.String(),sixsixtime)
-	fmt.Fprintf(os.Stdout, "Download six nine time is : %s with %d downloads  \n", downloadtimesixnine.String(),sixninetime)
-	fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
+	fmt.Fprintf(os.Stdout, "New log download time six six is : %s  \n",downloadtimesixsix.String())
+	fmt.Fprintf(os.Stdout, "New log download time six nine is : %s  \n",downloadtimesixnine.String())
+	fmt.Fprintf(os.Stdout, "New log bumber of six six stripes is : %s  \n",sixsixtime)
+	fmt.Fprintf(os.Stdout, "New log bumber of six nine stripes is : %s  \n",sixninetime)
+	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n",writetime.String())
+	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n",checkstime.String())
+	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n",nbver)
+	fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n",readchanneltime.String())
 	return nil
 }
 
