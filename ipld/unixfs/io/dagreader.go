@@ -1187,15 +1187,15 @@ func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, done
 
 func (dr *dagReader) WriteNWID5(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
-	cont := make(chan struct{})
-	go dr.startTimerNew5(ctxx,cont)
-	err := dr.WriteNWI5(w, cancell,cont)
+	cont := make(chan struct{},1)
+	go dr.startTimerNew5(ctxx, cont)
+	err := dr.WriteNWI5(w, cancell, cont)
 
 	return err
 
 }
 
-func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc,cont chan struct{}) error {
+func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, cont chan struct{}) error {
 	fmt.Fprintf(os.Stdout, "Start the function %s  \n", time.Now().Format("15:04:05.000"))
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
@@ -1466,7 +1466,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc,cont chan
 	return nil
 }
 
-func (dr *dagReader) startTimerNew5(ctx context.Context,cont chan struct{}) {
+func (dr *dagReader) startTimerNew5(ctx context.Context, cont chan struct{}) {
 	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
 	for {
@@ -1477,14 +1477,15 @@ func (dr *dagReader) startTimerNew5(ctx context.Context,cont chan struct{}) {
 		case <-ticker.C:
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
-			
+
 			if dr.stop == true {
 				return
 			}
-			dr.toskip = true
 			select {
-			case  <- cont:
+			case <-cont:
 			}
+			dr.toskip = true
+			
 		}
 	}
 }
