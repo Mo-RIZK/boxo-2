@@ -1215,7 +1215,9 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 		for _, l := range n.Links() {
 			st := time.Now()
 			fmt.Fprintf(os.Stdout, "to skip is %t; length of linkparallel is : %d;countchecked is: %d; length of retnext is : %d;length of indexes is: %d;nbr is: %d  \n", dr.toskip, len(linksparallel), countchecked, len(dr.retnext), len(dr.Indexes), nbr)
+			dr.mu.Lock()
 			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
+				dr.mu.Unlock()
 				fmt.Fprintf(os.Stdout, "111111111111 \n")
 				checkstime += time.Since(st)
 				st1 := time.Now()
@@ -1233,11 +1235,14 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					fmt.Fprintf(os.Stdout, "33333333333333 \n")
 					checkstime += time.Since(st2)
 					dr.Indexes = make([]int, 0)
+					dr.mu.Lock()
 					dr.toskip = false
+					dr.mu.Unlock()
 					sixnine = true
 					//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
 				}
 			} else {
+				dr.mu.Unlock()
 				fmt.Fprintf(os.Stdout, "4444444444444 \n")
 				countchecked++
 				//fmt.Fprintf(os.Stdout, "Check if the index of the current cid is included in the indexes to fill links parallel %s  \n", time.Now().Format("15:04:05.000"))
@@ -1476,7 +1481,9 @@ func (dr *dagReader) startTimerNew5(ctx context.Context) {
 			if dr.stop == true {
 				return
 			}
+			dr.mu.Lock()
 			dr.toskip = true
+			dr.mu.Unlock()
 		}
 	}
 }
