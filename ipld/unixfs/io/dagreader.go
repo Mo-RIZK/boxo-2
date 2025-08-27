@@ -1337,7 +1337,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 								writetime += time.Since(wr)
 								fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", writetime.String())
+								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 								return nil
 							}
 						}
@@ -1436,7 +1436,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-							fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", writetime.String())
+							fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 							return nil
 						}
 					}
@@ -1456,7 +1456,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	dr.ctx.Done()
 	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", writetime.String())
+	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 	return nil
 }
 
