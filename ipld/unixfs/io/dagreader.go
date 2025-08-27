@@ -1206,7 +1206,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	var checkstime time.Duration
 	var writetime time.Duration
 	var reconstructiontime time.Duration
-	var downloadtime time.Duration
+	var downloadtimesixsix time.Duration
+	var downloadtimesixnine time.Duration
 	var readchanneltime time.Duration
 	dr.Indexes = []int{0, 1, 2}
 
@@ -1290,7 +1291,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					dr.wg.Wait()
 					//take from done channel
 					close(doneChanR)
-					downloadtime += time.Since(d)
+					downloadtimesixsix += time.Since(d)
 					d1 := time.Now()
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
@@ -1337,7 +1338,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								writetime += time.Since(wr)
 								fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
 								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
-								fmt.Fprintf(os.Stdout, "Download time is : %s  \n", downloadtime.String())
+								fmt.Fprintf(os.Stdout, "Download six six time is : %s  \n", downloadtimesixsix.String())
+								fmt.Fprintf(os.Stdout, "Download six nine time is : %s  \n", downloadtimesixnine.String())
 								fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
 								return nil
 							}
@@ -1394,7 +1396,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				dr.wg.Wait()
 				//take from done channel
 				close(doneChanR)
-				downloadtime += time.Since(d2)
+				downloadtimesixnine += time.Since(d2)
 				d3 := time.Now()
 				//fmt.Fprintf(os.Stdout, "Finished downloading retnext and start reading from channel retnext %s  \n", time.Now().Format("15:04:05.000"))
 				shards := make([][]byte, dr.or+dr.par)
@@ -1441,7 +1443,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
 							fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
-							fmt.Fprintf(os.Stdout, "Download time is : %s  \n", downloadtime.String())
+							fmt.Fprintf(os.Stdout, "Download six six time is : %s  \n", downloadtimesixsix.String())
+							fmt.Fprintf(os.Stdout, "Download six nine time is : %s  \n", downloadtimesixnine.String())
 							fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
 							return nil
 						}
@@ -1463,7 +1466,8 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
 	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
-	fmt.Fprintf(os.Stdout, "Download time is : %s  \n", downloadtime.String())
+	fmt.Fprintf(os.Stdout, "Download six six time is : %s  \n", downloadtimesixsix.String())
+	fmt.Fprintf(os.Stdout, "Download six nine time is : %s  \n", downloadtimesixnine.String())
 	fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
 	return nil
 }
