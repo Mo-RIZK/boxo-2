@@ -1329,6 +1329,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
+								fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 								return nil
 							}
 						}
@@ -1420,6 +1421,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							w.Write(towrite)
 							dr.stop = true
 							cancell()
+							fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 							return nil
 						}
 					}
@@ -1437,6 +1439,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	dr.stop = true
 	cancell()
 	dr.ctx.Done()
+	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 	return nil
 }
 
