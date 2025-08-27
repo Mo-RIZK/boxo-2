@@ -1208,6 +1208,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	var reconstructiontime time.Duration
 	var downloadtime time.Duration
 	var readchanneltime time.Duration
+	dr.Indexes = []int{0, 1, 2}
 
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
@@ -1227,7 +1228,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				st2 := time.Now()
 				if len(dr.retnext) == dr.or+dr.par {
 					checkstime += time.Since(st2)
-					dr.Indexes = make([]int, 0)
+					// dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					sixnine = true
 					//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
@@ -1332,9 +1333,9 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
-									fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
+								fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 								writetime += time.Since(wr)
-									fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
+								fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
 								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 								fmt.Fprintf(os.Stdout, "Download time is : %s  \n", downloadtime.String())
 								fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
@@ -1401,7 +1402,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				for value := range doneChanR {
 					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 					// Place the node's raw data into the correct index in shards
-					dr.Indexes = append(dr.Indexes, value.Index)
+					/////////////////////dr.Indexes = append(dr.Indexes, value.Index)
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if value.Index%(dr.or+dr.par) >= dr.or {
 						reconstruct = 1
@@ -1436,10 +1437,10 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							w.Write(towrite)
 							dr.stop = true
 							cancell()
-								fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
+							fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 							writetime += time.Since(wr1)
-								fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
+							fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
+							fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 							fmt.Fprintf(os.Stdout, "Download time is : %s  \n", downloadtime.String())
 							fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
 							return nil
@@ -1459,9 +1460,9 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	dr.stop = true
 	cancell()
 	dr.ctx.Done()
-		fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
-		fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-		fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
+	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
+	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
+	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 	fmt.Fprintf(os.Stdout, "Download time is : %s  \n", downloadtime.String())
 	fmt.Fprintf(os.Stdout, "Read from channel time is : %s  \n", readchanneltime.String())
 	return nil
@@ -1483,7 +1484,7 @@ func (dr *dagReader) startTimerNew5(ctx context.Context) {
 				return
 			}
 			dr.toskip = true
-			
+
 		}
 	}
 }
