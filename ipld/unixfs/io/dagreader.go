@@ -1187,7 +1187,7 @@ func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, done
 
 func (dr *dagReader) WriteNWID5(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
-	cont := make(chan struct{},1)
+	cont := make(chan struct{}, 1)
 	go dr.startTimerNew5(ctxx, cont)
 	err := dr.WriteNWI5(w, cancell, cont)
 
@@ -1339,6 +1339,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc, cont cha
 								cancell()
 								//	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 								writetime += time.Since(wr)
+								cont <- struct{}{}
 								//	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
 								//fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 								return nil
@@ -1485,7 +1486,7 @@ func (dr *dagReader) startTimerNew5(ctx context.Context, cont chan struct{}) {
 			case <-cont:
 			}
 			dr.toskip = true
-			
+
 		}
 	}
 }
