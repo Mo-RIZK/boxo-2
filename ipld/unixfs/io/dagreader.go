@@ -1214,44 +1214,47 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			st := time.Now()
+			fmt.Fprintf(os.Stdout, "to skip is %t; length of linkparallel is : %d;countchecked is: %d; length of retnext is : %d;length of indexes is: %d;nbr is: %d  \n", dr.toskip,len(linksparallel),countchecked,len(dr.retnext),len(dr.Indexes),nbr)
 			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
+				fmt.Fprintf(os.Stdout, "111111111111 \n")
 				checkstime += time.Since(st)
 				st1 := time.Now()
 				if len(dr.retnext) < dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "22222222222222 \n")
 					checkstime += time.Since(st1)
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					dr.retnext = append(dr.retnext, topass)
-					fmt.Fprintf(os.Stdout, "Filled 1 in the retnext %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Filled 1 in the retnext %s  \n", time.Now().Format("15:04:05.000"))
 				} else {
 					checkstime += time.Since(st1)
 				}
 				st2 := time.Now()
 				if len(dr.retnext) == dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "33333333333333 \n")
 					checkstime += time.Since(st2)
 					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					sixnine = true
-					fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
-				} else {
-					checkstime += time.Since(st2)
+					//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
 				}
 			} else {
+				fmt.Fprintf(os.Stdout, "4444444444444 \n")
 				countchecked++
-				fmt.Fprintf(os.Stdout, "Check if the index of the current cid is included in the indexes to fill links parallel %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Check if the index of the current cid is included in the indexes to fill links parallel %s  \n", time.Now().Format("15:04:05.000"))
 				st3 := time.Now()
 				tocheck := nbr % (dr.or + dr.par)
 				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
+					fmt.Fprintf(os.Stdout, "5555555555555555 \n")
 					checkstime += time.Since(st3)
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 					linksparallel = append(linksparallel, topass)
-					fmt.Fprintf(os.Stdout, "It is in and filled %s  \n", time.Now().Format("15:04:05.000"))
-				} else {
-					checkstime += time.Since(st3)
+					//fmt.Fprintf(os.Stdout, "It is in and filled %s  \n", time.Now().Format("15:04:05.000"))
 				}
 				st4 := time.Now()
 				if len(linksparallel) == dr.or && countchecked == dr.or+dr.par {
+					fmt.Fprintf(os.Stdout, "666666666666666666 \n")
 					checkstime += time.Since(st4)
-					fmt.Fprintf(os.Stdout, "Finished Filling links parallel %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Finished Filling links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					countchecked = 0
 					//open channel with context
 					doneChanR := make(chan nodeswithindexes, dr.or)
@@ -1284,7 +1287,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						}
 					}
 					dr.wg.Add(dr.or)
-					fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 					for i, link := range linksparallel {
 						topass := linkswithindexes{Link: link.Link, Index: i}
 						go worker(topass)
@@ -1296,7 +1299,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					close(doneChanR)
 					shards := make([][]byte, dr.or+dr.par)
 					reconstruct := 0
-					fmt.Fprintf(os.Stdout, "Finished downloading linksparallel and start reading from the channel links parallel %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Finished downloading linksparallel and start reading from the channel links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					for value := range doneChanR {
 						// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 						// Place the node's raw data into the correct index in shards
@@ -1306,7 +1309,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						}
 						//dr.writeNodeDataBuffer(w)
 					}
-					fmt.Fprintf(os.Stdout, "Finished reading from channel linksparallel and start reconstruction and verification links parallel %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Finished reading from channel linksparallel and start reconstruction and verification links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					if reconstruct == 1 {
 						sss := time.Now()
 						dr.recnostructtimes++
@@ -1320,7 +1323,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						dr.verificationTime += en.Sub(st)
 						reconstructiontime += time.Since(sss)
 					}
-					fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start of writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start of writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
 
 					wr := time.Now()
 					for i, shard := range shards {
@@ -1334,15 +1337,15 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 								w.Write(towrite)
 								dr.stop = true
 								cancell()
-								fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
+							//	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 								writetime += time.Since(wr)
-								fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-								fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
+							//	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
+								//fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 								return nil
 							}
 						}
 					}
-					fmt.Fprintf(os.Stdout, "Finished writing links parallel %s  \n", time.Now().Format("15:04:05.000"))
+					//fmt.Fprintf(os.Stdout, "Finished writing links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					linksparallel = make([]linkswithindexes, 0)
 				} else {
 					checkstime += time.Since(st4)
@@ -1350,6 +1353,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 			}
 			st5 := time.Now()
 			if sixnine {
+				fmt.Fprintf(os.Stdout, "77777777777777 \n")
 				checkstime += time.Since(st5)
 				countchecked = 0
 				//open channel with context
@@ -1383,7 +1387,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					}
 				}
 				dr.wg.Add(dr.or)
-				fmt.Fprintf(os.Stdout, "Start downloading retnext %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Start downloading retnext %s  \n", time.Now().Format("15:04:05.000"))
 				for i, link := range dr.retnext {
 					topass := linkswithindexes{Link: link.Link, Index: i}
 					go worker(topass)
@@ -1393,7 +1397,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				dr.wg.Wait()
 				//take from done channel
 				close(doneChanR)
-				fmt.Fprintf(os.Stdout, "Finished downloading retnext and start reading from channel retnext %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Finished downloading retnext and start reading from channel retnext %s  \n", time.Now().Format("15:04:05.000"))
 				shards := make([][]byte, dr.or+dr.par)
 				reconstruct := 0
 				for value := range doneChanR {
@@ -1406,7 +1410,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					}
 					//dr.writeNodeDataBuffer(w)
 				}
-				fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
 					sss1 := time.Now()
 					dr.recnostructtimes++
@@ -1420,7 +1424,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					dr.verificationTime += en.Sub(st)
 					reconstructiontime += time.Since(sss1)
 				}
-				fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
 				wr1 := time.Now()
 				for i, shard := range shards {
 					if i < dr.or {
@@ -1433,15 +1437,15 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							w.Write(towrite)
 							dr.stop = true
 							cancell()
-							fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
+						//	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 							writetime += time.Since(wr1)
-							fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-							fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
+						//	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
+						//	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 							return nil
 						}
 					}
 				}
-				fmt.Fprintf(os.Stdout, "Finished writing retnext %s  \n", time.Now().Format("15:04:05.000"))
+			///	fmt.Fprintf(os.Stdout, "Finished writing retnext %s  \n", time.Now().Format("15:04:05.000"))
 				linksparallel = make([]linkswithindexes, 0)
 				dr.retnext = make([]linkswithindexes, 0)
 				sixnine = false
@@ -1454,9 +1458,9 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	dr.stop = true
 	cancell()
 	dr.ctx.Done()
-	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
-	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
-	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
+//	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
+//	fmt.Fprintf(os.Stdout, "Write time is : %s  \n", writetime.String())
+//	fmt.Fprintf(os.Stdout, "Reconstruction and verification time are : %s  \n", reconstructiontime.String())
 	return nil
 }
 
