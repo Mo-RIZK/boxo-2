@@ -1187,14 +1187,15 @@ func (dr *dagReader) worker(ctx context.Context, cancel context.CancelFunc, done
 
 func (dr *dagReader) WriteNWID5(w io.Writer) error {
 	ctxx, cancell := context.WithCancel(context.Background())
-	go dr.startTimerNew5(ctxx)
-	err := dr.WriteNWI5(w, cancell)
+	cont := make(chan struct{})
+	go dr.startTimerNew5(ctxx,cont)
+	err := dr.WriteNWI5(w, cancell,cont)
 
 	return err
 
 }
 
-func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
+func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc,cont chan struct{}) error {
 	fmt.Fprintf(os.Stdout, "Start the function %s  \n", time.Now().Format("15:04:05.000"))
 	linksparallel := make([]linkswithindexes, 0)
 	enc, _ := reedsolomon.New(dr.or, dr.par)
@@ -1215,9 +1216,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 		for _, l := range n.Links() {
 			st := time.Now()
 			fmt.Fprintf(os.Stdout, "to skip is %t; length of linkparallel is : %d;countchecked is: %d; length of retnext is : %d;length of indexes is: %d;nbr is: %d  \n", dr.toskip, len(linksparallel), countchecked, len(dr.retnext), len(dr.Indexes), nbr)
-			dr.mu.Lock()
 			if dr.toskip == true && len(linksparallel) == 0 && countchecked == 0 {
-				dr.mu.Unlock()
 				fmt.Fprintf(os.Stdout, "111111111111 \n")
 				checkstime += time.Since(st)
 				st1 := time.Now()
@@ -1235,14 +1234,11 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					fmt.Fprintf(os.Stdout, "33333333333333 \n")
 					checkstime += time.Since(st2)
 					dr.Indexes = make([]int, 0)
-					dr.mu.Lock()
 					dr.toskip = false
-					dr.mu.Unlock()
 					sixnine = true
 					//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
 				}
 			} else {
-				dr.mu.Unlock()
 				fmt.Fprintf(os.Stdout, "4444444444444 \n")
 				countchecked++
 				//fmt.Fprintf(os.Stdout, "Check if the index of the current cid is included in the indexes to fill links parallel %s  \n", time.Now().Format("15:04:05.000"))
@@ -1439,6 +1435,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 							towrite := shard[0 : dr.size-written]
 							w.Write(towrite)
 							dr.stop = true
+							cont <- struct{}{}
 							cancell()
 							//	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
 							writetime += time.Since(wr1)
@@ -1452,6 +1449,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				linksparallel = make([]linkswithindexes, 0)
 				dr.retnext = make([]linkswithindexes, 0)
 				sixnine = false
+				cont <- struct{}{}
 			} else {
 				checkstime += time.Since(st5)
 			}
@@ -1459,6 +1457,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 		}
 	}
 	dr.stop = true
+	cont <- struct{}{}
 	cancell()
 	dr.ctx.Done()
 	//	fmt.Fprintf(os.Stdout, "Check time is : %s  \n", checkstime.String())
@@ -1467,7 +1466,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 	return nil
 }
 
-func (dr *dagReader) startTimerNew5(ctx context.Context) {
+func (dr *dagReader) startTimerNew5(ctx context.Context,cont chan struct{}) {
 	ticker := time.NewTicker(time.Duration(dr.interval * float64(time.Second)))
 	defer ticker.Stop()
 	for {
@@ -1478,12 +1477,14 @@ func (dr *dagReader) startTimerNew5(ctx context.Context) {
 		case <-ticker.C:
 			// Do the update by retrieving the next set of or + par chunks and update indexes with times
 			// dont forget to mutex lock not to interfere
+			
 			if dr.stop == true {
 				return
 			}
-			dr.mu.Lock()
 			dr.toskip = true
-			dr.mu.Unlock()
+			select {
+			case  <- cont:
+			}
 		}
 	}
 }
