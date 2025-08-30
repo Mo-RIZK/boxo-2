@@ -1255,7 +1255,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				st2 := time.Now()
 				if len(dr.retnext) == dr.or+dr.par {
 					checkstime += time.Since(st2)
-					// dr.Indexes = make([]int, 0)
+					dr.Indexes = make([]int, 0)
 					dr.toskip = false
 					sixnine = true
 					//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
