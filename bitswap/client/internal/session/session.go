@@ -3,6 +3,8 @@ package session
 import (
 	"context"
 	"time"
+	"os"
+	"fmt"
 
 	"github.com/ipfs/boxo/bitswap/client/internal"
 	bsbpm "github.com/ipfs/boxo/bitswap/client/internal/blockpresencemanager"
@@ -430,6 +432,9 @@ func (s *Session) handleShutdown() {
 func (s *Session) handleReceive(ks []cid.Cid) {
 	// Record which blocks have been received and figure out the total latency
 	// for fetching the blocks
+	for _, c := range ks {
+            fmt.Fprintf(os.Stdout, "Recieved the chunk here cid: %s on %s\n", c.String(), time.Now().String())
+        }
 	wanted, totalLatency := s.sw.BlocksReceived(ks)
 	if len(wanted) == 0 {
 		return
@@ -462,6 +467,9 @@ func (s *Session) wantBlocks(ctx context.Context, newks []cid.Cid) {
 		// Tell the sessionWants tracker that that the wants have been requested
 		s.sw.BlocksRequested(newks)
 		// Tell the sessionWantSender that the blocks have been requested
+		for _, c := range newks {
+            fmt.Fprintf(os.Stdout, "Requested the chunk here cid: %s on %s\n", c.String(), time.Now().String())
+        }
 		s.sws.Add(newks)
 	}
 
