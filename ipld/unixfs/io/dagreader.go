@@ -557,6 +557,7 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 							shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 							//dr.writeNodeDataBuffer(w)
 						}
+						fmt.Fprintf(os.Stdout, "-------------------------- \n")
 						for i, shard := range shards {
 							if i < dr.or {
 								if written+int64(len(shard)) < int64(dr.size) {
