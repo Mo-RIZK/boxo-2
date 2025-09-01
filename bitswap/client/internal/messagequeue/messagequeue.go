@@ -598,9 +598,6 @@ func (mq *MessageQueue) sendMessage() {
 			// do not shudown the queue here, wait for Disconnect to arrive.
 			return
 		}
-		for _, e := range wantlist {
-			fmt.Fprintf(os.Stdout, "Requested the chunk here in message queue CID %s at %s\n", e.Cid.String(), time.Now().String())
-		}
 		// Record sent time so as to calculate message latency
 		onSent()
 
