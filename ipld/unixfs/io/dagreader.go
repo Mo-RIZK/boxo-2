@@ -660,14 +660,16 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				for value := range doneChan {
 					// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
 					// Place the node's raw data into the correct index in shards
+					fmt.Fprintf(os.Stdout, "Index : %d  \n", value.Index)
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if value.Index%(dr.or+dr.par) >= dr.or {
 						reconstruct = 1
 					}
 					//dr.writeNodeDataBuffer(w)
 				}
+				fmt.Fprintf(os.Stdout, "-------------------------- \n")
 				Readchanneltime += time.Since(r)
-				fmt.Fprintf(os.Stdout, "Finished reading from channel and writing to shards and start reconstruction and verification links parallel   %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Finished reading from channel and writing to shards and start reconstruction and verification links parallel   %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
 					nbver++
 					v := time.Now()
@@ -1333,6 +1335,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						}
 						//dr.writeNodeDataBuffer(w)
 					}
+					fmt.Fprintf(os.Stdout, "-------------------------- \n")
 					readchanneltime += time.Since(d1)
 					//fmt.Fprintf(os.Stdout, "Finished reading from channel linksparallel and start reconstruction and verification links parallel %s  \n", time.Now().Format("15:04:05.000"))
 					if reconstruct == 1 {
@@ -1444,6 +1447,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					}
 					//dr.writeNodeDataBuffer(w)
 				}
+				fmt.Fprintf(os.Stdout, "-------------------------- \n")
 				readchanneltime += time.Since(d3)
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
