@@ -3,8 +3,6 @@ package session
 import (
 	"context"
 	"time"
-	"os"
-	"fmt"
 
 	"github.com/ipfs/boxo/bitswap/client/internal"
 	bsbpm "github.com/ipfs/boxo/bitswap/client/internal/blockpresencemanager"
