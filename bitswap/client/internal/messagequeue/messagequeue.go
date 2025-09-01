@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"os"
-	"fmt"
 
 	"github.com/filecoin-project/go-clock"
 	bswl "github.com/ipfs/boxo/bitswap/client/wantlist"
