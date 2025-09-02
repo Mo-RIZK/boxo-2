@@ -4,6 +4,8 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -536,6 +538,7 @@ func (bs *Client) ReceiveMessage(ctx context.Context, p peer.ID, incoming bsmsg.
 	iblocks := incoming.Blocks()
 
 	if len(iblocks) > 0 {
+		fmt.Fprintf(os.Stdout, "--!!!!!-- I received a block in Receive message client %s ----!!!!--- \n", time.Now().String())
 		bs.updateReceiveCounters(iblocks)
 		if log.Level().Enabled(zapcore.DebugLevel) {
 			for _, b := range iblocks {
