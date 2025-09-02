@@ -279,7 +279,7 @@ func getBlock(ctx context.Context, c cid.Cid, bs BlockService, fetchFactory func
 		return nil, err
 	}
 	enn := time.Since(tt)
-	fmt.Fprintf(os.Stdout, "--------------- I took : %s to retrieve this chunk ----------------- \n", enn.String())
+	//fmt.Fprintf(os.Stdout, "--------------- I took : %s to retrieve this chunk ----------------- \n", enn.String())
 	// also write in the blockstore for caching, inform the exchange that the block is available
 	err = blockstore.Put(ctx, blk)
 	if err != nil {
