@@ -720,14 +720,13 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 }
 
 func contains(slice []int, value int) bool {
-	tt := time.Now()
 	for _, v := range slice {
 		if v == value {
-			fmt.Fprintf(os.Stdout, "!!!!!!! contians took %s !!!!!!!!! \n", time.Since(tt))
+			fmt.Fprintf(os.Stdout, "!!!!!!! %d is in the interval !!!!!!!!! \n",value)
 			return true
 		}
 	}
-	fmt.Fprintf(os.Stdout, "!!!!!!! contians took %s !!!!!!!!! \n", time.Since(tt))
+	fmt.Fprintf(os.Stdout, "!!!!!!! %d is not in the interval !!!!!!!!! \n",value)
 	return false
 }
 
@@ -1268,6 +1267,9 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 				//fmt.Fprintf(os.Stdout, "Check if the index of the current cid is included in the indexes to fill links parallel %s  \n", time.Now().Format("15:04:05.000"))
 				st3 := time.Now()
 				tocheck := nbr % (dr.or + dr.par)
+				for _, i := range dr.Indexes {
+					fmt.Fprintf(os.Stdout, "Indexes contains : %d  \n", i)
+				}
 				if contains(dr.Indexes, tocheck) && len(linksparallel) < dr.or {
 					checkstime += time.Since(st3)
 					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
@@ -1331,7 +1333,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 						// Place the node's raw data into the correct index in shards
 						fmt.Fprintf(os.Stdout, "Index : %d  \n", value.Index)
 						shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
-						if value.Index%(dr.or+dr.par) >= dr.or {
+						if value.Index >= dr.or {
 							reconstruct = 1
 						}
 						//dr.writeNodeDataBuffer(w)
@@ -1443,7 +1445,7 @@ func (dr *dagReader) WriteNWI5(w io.Writer, cancell context.CancelFunc) error {
 					fmt.Fprintf(os.Stdout, "Index : %d  \n", value.Index)
 					dr.Indexes = append(dr.Indexes, value.Index)
 					shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
-					if value.Index%(dr.or+dr.par) >= dr.or {
+					if value.Index >= dr.or {
 						reconstruct = 1
 					}
 					//dr.writeNodeDataBuffer(w)
