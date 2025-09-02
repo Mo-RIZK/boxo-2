@@ -501,6 +501,7 @@ func (bs *Client) receiveBlocksFrom(ctx context.Context, from peer.ID, blks []bl
 
 	allKs := make([]cid.Cid, 0, len(blks))
 	for _, b := range blks {
+		fmt.Fprintf(os.Stdout, "--!!!!!-- I received a block in receive blocks from client of cid : %s at %s ----!!!!--- \n", b.Cid().String(), time.Now().String())
 		allKs = append(allKs, b.Cid())
 	}
 
@@ -538,7 +539,6 @@ func (bs *Client) ReceiveMessage(ctx context.Context, p peer.ID, incoming bsmsg.
 	iblocks := incoming.Blocks()
 
 	if len(iblocks) > 0 {
-		fmt.Fprintf(os.Stdout, "--!!!!!-- I received a block in Receive message client %s ----!!!!--- \n", time.Now().String())
 		bs.updateReceiveCounters(iblocks)
 		if log.Level().Enabled(zapcore.DebugLevel) {
 			for _, b := range iblocks {
