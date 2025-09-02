@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"os"
+	"fmt"
 
 	"github.com/filecoin-project/go-clock"
 	bswl "github.com/ipfs/boxo/bitswap/client/wantlist"
@@ -596,6 +598,7 @@ func (mq *MessageQueue) sendMessage() {
 			// do not shudown the queue here, wait for Disconnect to arrive.
 			return
 		}
+		fmt.Fprintf(os.Stdout, ".... SendMessage .... \n")
 		// Record sent time so as to calculate message latency
 		onSent()
 
