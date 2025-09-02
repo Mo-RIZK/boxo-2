@@ -515,7 +515,7 @@ func (mq *MessageQueue) runQueue() {
 			if mq.events != nil {
 				mq.events <- messageQueued
 			}
-
+			fmt.Fprintf(os.Stdout, ".... SendMessage in hasworkchan .... \n")
 			mq.sendMessage()
 			hasWorkChan = nil
 
@@ -547,6 +547,7 @@ func (mq *MessageQueue) rebroadcastWantlist(now time.Time, interval time.Duratio
 	if toRebroadcast > 0 {
 		// Send them out
 		mq.sendMessage()
+		fmt.Fprintf(os.Stdout, ".... SendMessage in rebroadcast .... \n")
 		log.Infow("Rebroadcasting wants", "amount", toRebroadcast, "peer", mq.p)
 	}
 }
@@ -598,7 +599,6 @@ func (mq *MessageQueue) sendMessage() {
 			// do not shudown the queue here, wait for Disconnect to arrive.
 			return
 		}
-		fmt.Fprintf(os.Stdout, ".... SendMessage .... \n")
 		// Record sent time so as to calculate message latency
 		onSent()
 
