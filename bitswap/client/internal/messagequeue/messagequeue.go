@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"os"
-	"fmt"
 
 	"github.com/filecoin-project/go-clock"
 	bswl "github.com/ipfs/boxo/bitswap/client/wantlist"
@@ -515,7 +513,7 @@ func (mq *MessageQueue) runQueue() {
 			if mq.events != nil {
 				mq.events <- messageQueued
 			}
-			fmt.Fprintf(os.Stdout, ".... SendMessage in hasworkchan .... \n")
+			//fmt.Fprintf(os.Stdout, ".... SendMessage in hasworkchan .... \n")
 			mq.sendMessage()
 			hasWorkChan = nil
 
@@ -547,7 +545,7 @@ func (mq *MessageQueue) rebroadcastWantlist(now time.Time, interval time.Duratio
 	if toRebroadcast > 0 {
 		// Send them out
 		mq.sendMessage()
-		fmt.Fprintf(os.Stdout, ".... SendMessage in rebroadcast .... \n")
+		//fmt.Fprintf(os.Stdout, ".... SendMessage in rebroadcast .... \n")
 		log.Infow("Rebroadcasting wants", "amount", toRebroadcast, "peer", mq.p)
 	}
 }
@@ -560,7 +558,7 @@ func (mq *MessageQueue) signalWorkReady() {
 }
 
 func (mq *MessageQueue) sendMessage() {
-	fmt.Fprintf(os.Stdout, ".... SendMessage in send message .... \n")
+	//fmt.Fprintf(os.Stdout, ".... SendMessage in send message .... \n")
 	sender, err := mq.initializeSender()
 	if err != nil {
 		// If we fail to initialize the sender, the networking layer will
