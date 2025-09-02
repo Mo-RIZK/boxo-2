@@ -317,7 +317,6 @@ func (bs *Server) logOutgoingBlocks(env *decision.Envelope) {
 
 	}
 	for _, block := range env.Message.Blocks() {
-		fmt.Fprintf(os.Stdout, "--!!!!!-- I send a block in send blocks after processing and checking if it is in the data store or not of cid : %s at  %s ----!!!!--- \n", block.Cid().String(), time.Now().String())
 
 		log.Debugw("sent message",
 			"type", "BLOCK",
@@ -347,6 +346,8 @@ func (bs *Server) sendBlocks(ctx context.Context, env *decision.Envelope) {
 	dataSent := 0
 	blocks := env.Message.Blocks()
 	for _, b := range blocks {
+		fmt.Fprintf(os.Stdout, "--!!!!!-- I send a block in send blocks after processing and checking if it is in the data store or not of cid : %s at  %s ----!!!!--- \n", b.Cid().String(), time.Now().String())
+
 		dataSent += len(b.RawData())
 	}
 	bs.counterLk.Lock()
