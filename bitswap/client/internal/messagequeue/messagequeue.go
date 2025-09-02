@@ -560,6 +560,7 @@ func (mq *MessageQueue) signalWorkReady() {
 }
 
 func (mq *MessageQueue) sendMessage() {
+	fmt.Fprintf(os.Stdout, ".... SendMessage in send message .... \n")
 	sender, err := mq.initializeSender()
 	if err != nil {
 		// If we fail to initialize the sender, the networking layer will
