@@ -553,7 +553,7 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 						}
 					}
 				}
-						dr.retnext = make([]*ipld.Link, 0)
+						dr.retnext = make([]linkswithindexes, 0)
 						skipped = 0
 					}
 
