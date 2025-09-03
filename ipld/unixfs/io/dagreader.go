@@ -1723,7 +1723,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 						// Should not happen unless GetMany returns unexpected CIDs
 						continue
 					}
-					dr.Indexes = append(dr.Indexes,Idx)
+					dr.Indexes = append(dr.Indexes,idx)
 					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if idx >= dr.or {
 						reconstruct = 1
