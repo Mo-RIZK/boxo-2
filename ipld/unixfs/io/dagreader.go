@@ -689,6 +689,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				///	fmt.Fprintf(os.Stdout, "Finished writing retnext %s  \n", time.Now().Format("15:04:05.000"))
 				dr.retnext = make([]linkswithindexes, 0)
 			}
+			nbr++
 		}
 	}
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
