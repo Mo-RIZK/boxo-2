@@ -365,7 +365,7 @@ func getBlocks(ctx context.Context, ks []cid.Cid, blockservice BlockService, fet
 		}
 
 		//ex := blockservice.Exchange()
-		var cache [1]blocks.Block // preallocate once for all iterations
+		//var cache [1]blocks.Block // preallocate once for all iterations
 		for {
 			var b blocks.Block
 			select {
