@@ -597,10 +597,9 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 // /////////////// Downloading all chunks and the fastest N chunks we retrieve we will be writing it to disk /////////////////////////
 func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	fmt.Fprintf(os.Stdout, "Start function  %s  \n", time.Now().Format("15:04:05.000"))
-	var downloadtime time.Duration
 	var writetime time.Duration
-	var Readchanneltime time.Duration
-	var checkandvertime time.Duration
+	var reconstructiontime time.Duration
+	reconstructiontimes := 0
 	nbver := 0
 	nbr := 0
 	enc, _ := reedsolomon.New(dr.or, dr.par)
@@ -614,7 +613,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				}
 				if len(dr.retnext) == dr.or+dr.par {
 				wrote := 0
-				countchecked = 0
+				//countchecked = 0
 				//open channel with context
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 				//start n+k gourotines and start retrieving parallel nodes
@@ -622,7 +621,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				togetmany := make([]cid.Cid, 0)
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
-				cidIndexMap := make(map[cid.Cid]int, len(linksparallel))
+				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
 				for _, ci := range dr.retnext {
 					togetmany = append(togetmany, ci.Link.Cid)
 					cidIndexMap[ci.Link.Cid] = ci.Index
@@ -680,10 +679,9 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 							towrite := shard[0 : dr.size-written]
 							w.Write(towrite)
 							dr.stop = true
-							cancell()
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
+							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s with %d times  \n", reconstructiontime.String(),reconstructiontimes)
 							return nil
 						}
 					}
@@ -693,11 +691,8 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 			}
 		}
 	}
-	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", checkandvertime.String())
-	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
-	fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n", Readchanneltime.String())
+	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s with %d times  \n", reconstructiontime.String(),reconstructiontimes)
 	return nil
 }
 
