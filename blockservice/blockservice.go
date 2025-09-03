@@ -364,8 +364,8 @@ func getBlocks(ctx context.Context, ks []cid.Cid, blockservice BlockService, fet
 			return
 		}
 
-		//ex := blockservice.Exchange()
-		//var cache [1]blocks.Block // preallocate once for all iterations
+		ex := blockservice.Exchange()
+		var cache [1]blocks.Block // preallocate once for all iterations
 		for {
 			var b blocks.Block
 			select {
@@ -385,7 +385,7 @@ func getBlocks(ctx context.Context, ks []cid.Cid, blockservice BlockService, fet
 				return
 			}
 
-			/*if ex != nil {
+			if ex != nil {
 				// inform the exchange that the blocks are available
 				cache[0] = b
 				err = ex.NotifyNewBlocks(ctx, cache[:]...)
@@ -394,7 +394,7 @@ func getBlocks(ctx context.Context, ks []cid.Cid, blockservice BlockService, fet
 					return
 				}
 				cache[0] = nil // early gc
-			}*/
+			}
 
 			select {
 			case out <- b:
