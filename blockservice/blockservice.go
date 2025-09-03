@@ -282,12 +282,12 @@ func getBlock(ctx context.Context, c cid.Cid, bs BlockService, fetchFactory func
 	if err != nil {
 		return nil, err
 	}
-	if ex := bs.Exchange(); ex != nil {
+	/*if ex := bs.Exchange(); ex != nil {
 		err = ex.NotifyNewBlocks(ctx, blk)
 		if err != nil {
 			return nil, err
 		}
-	}
+	}*/
 	logger.Debugf("BlockService.BlockFetched %s", c)
 	return blk, nil
 }
