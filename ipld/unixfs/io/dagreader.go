@@ -491,9 +491,8 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 
 // //////////////////// Downloading only the original data /////////////////////
 func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
-	linksparallel := make([]*ipld.Link, 0)
 	skipped := 0
-	var written int64
+	var written uint64
 	written = 0
 	nbr := 0
 	for _, n := range dr.nodesToExtr {
