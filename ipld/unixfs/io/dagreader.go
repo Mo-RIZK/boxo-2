@@ -495,99 +495,72 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 	skipped := 0
 	var written int64
 	written = 0
+	nbr := 0
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			if len(linksparallel) < dr.or {
-				linksparallel = append(linksparallel, l)
+			if len(dr.retnext) < dr.or {
+				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
+				dr.retnext = append(dr.retnext, topass)
 			} else {
-				if len(linksparallel) == dr.or {
+				if len(dr.retnext) == dr.or {
 					skipped++
 					if skipped == dr.par {
-						//open channel with context
-						doneChan := make(chan nodeswithindexes, dr.or)
-						// Create a new context with cancellation for this batch
-						ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 						wrote := 0
-						defer cancel() // Ensure context is cancelled when batch is done
-						//start n+k gourotines and start retrieving parallel nodes
-						worker := func(nodepassed linkswithindexes) {
-							start := time.Now()
-							node, _ := nodepassed.Link.GetNode(ctx, dr.serv)
-							end := time.Since(start)
-							fmt.Fprintf(os.Stdout, "Time taken to retrieve this node is : %s \n", end.String())
-							dr.mu.Lock()
-							defer dr.mu.Unlock()
-							select {
-							case <-ctx.Done():
-								fmt.Fprintf(os.Stdout, " In doneeeeee and the number of nodes entering this phase are : %d \n", wrote)
-								// Context cancelled, goroutine terminates early
-								if ctx.Err() == context.DeadlineExceeded {
-									fmt.Println("Timeout reached")
-									dr.ctx.Done()
-								}
-								return
-							default:
-								fmt.Fprintf(os.Stdout, "Entered processing on : %s \n", time.Now().Format("2006-01-02 15:04:05.000"))
-								wrote++
-								fmt.Fprintf(os.Stdout, "In default and The number of nodes entering this phase are : %d \n", wrote)
-								doneChan <- nodeswithindexes{Node: node, Index: nodepassed.Index}
-								if wrote == dr.or {
-									cancel()
-								}
-								dr.wg.Done()
-							}
-						}
-						dr.wg.Add(dr.or)
-						for i, link := range linksparallel {
-							topass := linkswithindexes{Link: link, Index: i}
-							go worker(topass)
-						}
+				//countchecked = 0
+				//open channel with context
+				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+				//start n+k gourotines and start retrieving parallel nodes
+				dr.wg.Add(dr.or)
+				togetmany := make([]cid.Cid, 0)
+				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
+				// Create a map of CID -> Index from linksparallel
+				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
+				for _, ci := range dr.retnext {
+					togetmany = append(togetmany, ci.Link.Cid)
+					cidIndexMap[ci.Link.Cid] = ci.Index
+				}
+				// Launch GetMany
+				chann := dr.serv.GetMany(ctx, togetmany)
+				shards := make([][]byte, dr.or+dr.par)
 
-						//wait
-						dr.wg.Wait()
-
-						//take from done channel
-						close(doneChan)
-						shards := make([][]byte, dr.or+dr.par)
-						for value := range doneChan {
-							// we will compare the indexes and see if they are from 0 to 2 but here we are trying just to write
-							fmt.Fprintf(os.Stdout, "index %d \n", value.Index)
-							size, _ := value.Node.Size()
-							fmt.Printf("Node size in bytes: %d\n", size)
-							// Place the node's raw data into the correct index in shards
-							shards[value.Index], _ = unixfs.ReadUnixFSNodeData(value.Node)
-							//dr.writeNodeDataBuffer(w)
+				// Read from channel
+				for value := range chann {
+					wrote++
+					idx, ok := cidIndexMap[value.Node.Cid()]
+					if !ok {
+						// Should not happen unless GetMany returns unexpected CIDs
+						continue
+					}
+					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+					dr.wg.Done()
+					if wrote >= dr.or {
+						cancel()
+						break
+					}
+				}
+				//wait
+				dr.wg.Wait()
+				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
+				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
+				for i, shard := range shards {
+					if i < dr.or {
+						if written+uint64(len(shard)) <= dr.size {
+							w.Write(shard)
+							written += uint64(len(shard))
+						} else {
+							towrite := shard[0 : dr.size-written]
+							w.Write(towrite)
+							return nil
 						}
-						fmt.Fprintf(os.Stdout, "-------------------------- \n")
-						for i, shard := range shards {
-							if i < dr.or {
-								if written+int64(len(shard)) < int64(dr.size) {
-									//writeondisk = append(writeondisk, shard...)
-									dr.currentNodeData = bytes.NewReader(shard)
-									fmt.Fprintf(os.Stdout, "READ from NETWORK and WRITE to BUFFER then PIPE : %s \n", time.Now().Format("2006-01-02 15:04:05.000"))
-									writtenn, _ := dr.writeNodeDataBuffer(w)
-									written += int64(writtenn)
-								} else {
-									towrite := shard[0 : int64(dr.size)-written]
-									dr.currentNodeData = bytes.NewReader(towrite)
-									writtenn, _ := dr.writeNodeDataBuffer(w)
-									written += int64(writtenn)
-									//writeondisk = append(writeondisk, towrite...)
-									//w.Write(writeondisk)
-									//w.Write(towrite)
-									//fmt.Fprintf(os.Stdout, "!!!!!!!!!!!!! takennnnnnn !!!!!!!!!!!!!!!!!! channel %s, writing only : %s \n", dr.timediff.String(), dr.timetakenDecode.String())
-									return nil
-								}
-
-							}
-						}
-						fmt.Fprintf(os.Stdout, "-------------------------------- \n")
-						linksparallel = make([]*ipld.Link, 0)
+					}
+				}
+						dr.retnext = make([]*ipld.Link, 0)
 						skipped = 0
 					}
 
 				}
 			}
+			nbr++
 		}
 	}
 
