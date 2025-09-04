@@ -512,7 +512,7 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 						ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 						//start n+k gourotines and start retrieving parallel nodes
 						dr.wg.Add(dr.or)
-						d :=time.Now()
+						d := time.Now()
 						togetmany := make([]cid.Cid, 0)
 						//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 						// Create a map of CID -> Index from linksparallel
@@ -548,12 +548,12 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 						for i, shard := range shards {
 							if i < dr.or {
 								if written+uint64(len(shard)) <= dr.size {
-									dd:=time.Now()
+									dd := time.Now()
 									w.Write(shard)
 									written += uint64(len(shard))
 									writetime += time.Since(dd)
 								} else {
-									ddd :=time.Now()
+									ddd := time.Now()
 									towrite := shard[0 : dr.size-written]
 									w.Write(towrite)
 									writetime += time.Since(ddd)
@@ -603,7 +603,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				//start n+k gourotines and start retrieving parallel nodes
 				dr.wg.Add(dr.or)
 				togetmany := make([]cid.Cid, 0)
-				d:=time.Now()
+				d := time.Now()
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
 				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
@@ -667,7 +667,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 							dr.stop = true
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s with %d times  \n", reconstructiontime.String(),reconstructiontimes)
+							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
 							fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 							return nil
@@ -681,10 +681,10 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 		}
 	}
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s with %d times  \n", reconstructiontime.String(),reconstructiontimes)
+	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
 	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
-	
+
 	return nil
 }
 
@@ -1690,7 +1690,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 						// Should not happen unless GetMany returns unexpected CIDs
 						continue
 					}
-					dr.Indexes = append(dr.Indexes,idx)
+					dr.Indexes = append(dr.Indexes, idx)
 					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if idx >= dr.or {
 						reconstruct = 1
