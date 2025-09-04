@@ -492,6 +492,8 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 // //////////////////// Downloading only the original data /////////////////////
 func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 	skipped := 0
+	var writetime time.Duration
+	var downloadtime time.Duration
 	var written uint64
 	written = 0
 	nbr := 0
@@ -505,54 +507,62 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 					skipped++
 					if skipped == dr.par {
 						wrote := 0
-				//countchecked = 0
-				//open channel with context
-				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-				//start n+k gourotines and start retrieving parallel nodes
-				dr.wg.Add(dr.or)
-				togetmany := make([]cid.Cid, 0)
-				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
-				// Create a map of CID -> Index from linksparallel
-				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
-				for _, ci := range dr.retnext {
-					togetmany = append(togetmany, ci.Link.Cid)
-					cidIndexMap[ci.Link.Cid] = ci.Index
-				}
-				// Launch GetMany
-				chann := dr.serv.GetMany(ctx, togetmany)
-				shards := make([][]byte, dr.or+dr.par)
-
-				// Read from channel
-				for value := range chann {
-					wrote++
-					idx, ok := cidIndexMap[value.Node.Cid()]
-					if !ok {
-						// Should not happen unless GetMany returns unexpected CIDs
-						continue
-					}
-					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-					dr.wg.Done()
-					if wrote >= dr.or {
-						cancel()
-						break
-					}
-				}
-				//wait
-				dr.wg.Wait()
-				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
-				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
-				for i, shard := range shards {
-					if i < dr.or {
-						if written+uint64(len(shard)) <= dr.size {
-							w.Write(shard)
-							written += uint64(len(shard))
-						} else {
-							towrite := shard[0 : dr.size-written]
-							w.Write(towrite)
-							return nil
+						//countchecked = 0
+						//open channel with context
+						ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+						//start n+k gourotines and start retrieving parallel nodes
+						dr.wg.Add(dr.or)
+						d :=time.Now()
+						togetmany := make([]cid.Cid, 0)
+						//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
+						// Create a map of CID -> Index from linksparallel
+						cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
+						for _, ci := range dr.retnext {
+							togetmany = append(togetmany, ci.Link.Cid)
+							cidIndexMap[ci.Link.Cid] = ci.Index
 						}
-					}
-				}
+						// Launch GetMany
+						chann := dr.serv.GetMany(ctx, togetmany)
+						shards := make([][]byte, dr.or+dr.par)
+
+						// Read from channel
+						for value := range chann {
+							wrote++
+							idx, ok := cidIndexMap[value.Node.Cid()]
+							if !ok {
+								// Should not happen unless GetMany returns unexpected CIDs
+								continue
+							}
+							shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+							dr.wg.Done()
+							if wrote >= dr.or {
+								cancel()
+								break
+							}
+						}
+						//wait
+						dr.wg.Wait()
+						downloadtime += time.Since(d)
+						//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
+						//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
+						for i, shard := range shards {
+							if i < dr.or {
+								if written+uint64(len(shard)) <= dr.size {
+									dd:=time.Now()
+									w.Write(shard)
+									written += uint64(len(shard))
+									writetime += time.Since(dd)
+								} else {
+									ddd :=time.Now()
+									towrite := shard[0 : dr.size-written]
+									w.Write(towrite)
+									writetime += time.Since(ddd)
+									fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+									fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+									return nil
+								}
+							}
+						}
 						dr.retnext = make([]linkswithindexes, 0)
 						skipped = 0
 					}
@@ -562,7 +572,8 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 			nbr++
 		}
 	}
-
+	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
 
@@ -571,6 +582,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	fmt.Fprintf(os.Stdout, "Start function  %s  \n", time.Now().Format("15:04:05.000"))
 	var writetime time.Duration
 	var reconstructiontime time.Duration
+	var downloadtime time.Duration
 	reconstructiontimes := 0
 	nbver := 0
 	nbr := 0
@@ -579,11 +591,11 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	written = 0
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-				if len(dr.retnext) < dr.or+dr.par {
-					topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
-					dr.retnext = append(dr.retnext, topass)
-				}
-				if len(dr.retnext) == dr.or+dr.par {
+			if len(dr.retnext) < dr.or+dr.par {
+				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
+				dr.retnext = append(dr.retnext, topass)
+			}
+			if len(dr.retnext) == dr.or+dr.par {
 				wrote := 0
 				//countchecked = 0
 				//open channel with context
@@ -591,6 +603,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				//start n+k gourotines and start retrieving parallel nodes
 				dr.wg.Add(dr.or)
 				togetmany := make([]cid.Cid, 0)
+				d:=time.Now()
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
 				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
@@ -624,6 +637,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				}
 				//wait
 				dr.wg.Wait()
+				downloadtime += time.Since(d)
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
 					nbver++
@@ -654,6 +668,8 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s with %d times  \n", reconstructiontime.String(),reconstructiontimes)
+							fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 							return nil
 						}
 					}
@@ -666,6 +682,9 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	}
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s with %d times  \n", reconstructiontime.String(),reconstructiontimes)
+	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
+	
 	return nil
 }
 
@@ -1504,7 +1523,6 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 	var reconstructiontime time.Duration
 	var downloadtimesixsix time.Duration
 	var downloadtimesixnine time.Duration
-	var readchanneltime time.Duration
 	sixsixtime := 0
 	sixninetime := 0
 	nbver := 0
@@ -1630,7 +1648,6 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 								fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 								fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", checkstime.String())
 								fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
-								fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n", readchanneltime.String())
 								return nil
 							}
 						}
@@ -1651,6 +1668,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 				//start n+k gourotines and start retrieving parallel nodes
 				dr.wg.Add(dr.or)
 				togetmany := make([]cid.Cid, 0)
+				d := time.Now()
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
 				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
@@ -1685,6 +1703,8 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 				}
 				//wait
 				dr.wg.Wait()
+				downloadtimesixnine += time.Since(d)
+				sixninetime++
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
 					nbver++
@@ -1721,7 +1741,6 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", checkstime.String())
 							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
-							fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n", readchanneltime.String())
 							return nil
 						}
 					}
@@ -1746,6 +1765,5 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", checkstime.String())
 	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
-	fmt.Fprintf(os.Stdout, "New log read from channel time is : %s  \n", readchanneltime.String())
 	return nil
 }
