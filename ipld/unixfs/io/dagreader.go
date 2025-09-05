@@ -1639,14 +1639,14 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 								dr.stop = true
 								cancell()
 								writetime += time.Since(wr)
-							fmt.Fprintf(os.Stdout, "New log download time six six is : %s  \n", downloadtimesixsix.String())
-							fmt.Fprintf(os.Stdout, "New log download time six nine is : %s  \n", downloadtimesixnine.String())
-							fmt.Fprintf(os.Stdout, "New log number of six six stripes is : %d  \n", sixsixtime)
-							fmt.Fprintf(os.Stdout, "New log number of six nine stripes is : %d  \n", sixninetime)
-							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-							rintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
-							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
-							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
+								fmt.Fprintf(os.Stdout, "New log download time six six is : %s  \n", downloadtimesixsix.String())
+								fmt.Fprintf(os.Stdout, "New log download time six nine is : %s  \n", downloadtimesixnine.String())
+								fmt.Fprintf(os.Stdout, "New log number of six six stripes is : %d  \n", sixsixtime)
+								fmt.Fprintf(os.Stdout, "New log number of six nine stripes is : %d  \n", sixninetime)
+								fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+								fmt.Fprintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
+								fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
+								fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 								return nil
 							}
 						}
@@ -1738,7 +1738,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 							fmt.Fprintf(os.Stdout, "New log number of six six stripes is : %d  \n", sixsixtime)
 							fmt.Fprintf(os.Stdout, "New log number of six nine stripes is : %d  \n", sixninetime)
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-							rintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
+							fmt.Fprintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
 							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
 							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 							return nil
@@ -1763,7 +1763,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 	fmt.Fprintf(os.Stdout, "New log number of six six stripes is : %d  \n", sixsixtime)
 	fmt.Fprintf(os.Stdout, "New log number of six nine stripes is : %d  \n", sixninetime)
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-	rintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
+	fmt.Fprintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
 	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
 	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 	return nil
