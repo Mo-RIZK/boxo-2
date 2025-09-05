@@ -582,9 +582,11 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	fmt.Fprintf(os.Stdout, "Start function  %s  \n", time.Now().Format("15:04:05.000"))
 	var writetime time.Duration
 	var reconstructiontime time.Duration
-	var downloadtime time.Duration
+	var downloadtimesixnine time.Duration
+	sixninetime := 0
 	nbver := 0
 	nbr := 0
+	sixnine := false  
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
@@ -593,10 +595,14 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 			if len(dr.retnext) < dr.or+dr.par {
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
 				dr.retnext = append(dr.retnext, topass)
+				//fmt.Fprintf(os.Stdout, "Filled 1 in the retnext %s  \n", time.Now().Format("15:04:05.000"))
 			}
 			if len(dr.retnext) == dr.or+dr.par {
+				sixnine = true
+				//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
+			}
+			if sixnine {
 				wrote := 0
-				//countchecked = 0
 				//open channel with context
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 				//start n+k gourotines and start retrieving parallel nodes
@@ -624,7 +630,8 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 						// Should not happen unless GetMany returns unexpected CIDs
 						continue
 					}
-					fmt.Fprintf(os.Stdout, "Index in n+k : %d  \n", idx)
+					fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+					dr.Indexes = append(dr.Indexes, idx)
 					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if idx >= dr.or {
 						reconstruct = 1
@@ -637,11 +644,13 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				}
 				//wait
 				dr.wg.Wait()
-				downloadtime += time.Since(d)
+				downloadtimesixnine += time.Since(d)
+				sixninetime++
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 				if reconstruct == 1 {
 					nbver++
 					sss1 := time.Now()
+					dr.recnostructtimes++
 					start := time.Now()
 					enc.Reconstruct(shards)
 					end := time.Now()
@@ -653,7 +662,6 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 					reconstructiontime += time.Since(sss1)
 				}
 				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
-				
 				for i, shard := range shards {
 					if i < dr.or {
 						if written+uint64(len(shard)) <= dr.size {
@@ -668,7 +676,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
-							fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+							fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtimesixnine.String())
 							fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 							return nil
 						}
@@ -676,13 +684,14 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				}
 				///	fmt.Fprintf(os.Stdout, "Finished writing retnext %s  \n", time.Now().Format("15:04:05.000"))
 				dr.retnext = make([]linkswithindexes, 0)
+				sixnine = false
 			}
 			nbr++
 		}
 	}
 	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
-	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtimesixnine.String())
 	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
 
 	return nil
@@ -1629,7 +1638,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					}
 					//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start of writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
 
-					
+
 					for i, shard := range shards {
 						if i < dr.or {
 							if written+uint64(len(shard)) <= dr.size {
