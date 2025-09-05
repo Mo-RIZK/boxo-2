@@ -652,17 +652,18 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 					reconstructiontime += time.Since(sss1)
 				}
 				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
-				wr1 := time.Now()
+				
 				for i, shard := range shards {
 					if i < dr.or {
 						if written+uint64(len(shard)) <= dr.size {
+							wr1 := time.Now()
 							w.Write(shard)
 							written += uint64(len(shard))
 							writetime += time.Since(wr1)
 						} else {
+							wr1 := time.Now()
 							towrite := shard[0 : dr.size-written]
 							w.Write(towrite)
-							dr.stop = true
 							writetime += time.Since(wr1)
 							fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
 							fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
@@ -1595,6 +1596,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 							// Should not happen unless GetMany returns unexpected CIDs
 							continue
 						}
+						fmt.Fprintf(os.Stdout, "66 index : %d  \n", idx)
 						shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 						if idx >= dr.or {
 							reconstruct = 1
@@ -1626,14 +1628,16 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					}
 					//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start of writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
 
-					wr := time.Now()
+					
 					for i, shard := range shards {
 						if i < dr.or {
 							if written+uint64(len(shard)) <= dr.size {
+								wr := time.Now()
 								w.Write(shard)
 								written += uint64(len(shard))
 								writetime += time.Since(wr)
 							} else {
+								wr := time.Now()
 								towrite := shard[0 : dr.size-written]
 								w.Write(towrite)
 								dr.stop = true
@@ -1689,6 +1693,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 						// Should not happen unless GetMany returns unexpected CIDs
 						continue
 					}
+					fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
 					dr.Indexes = append(dr.Indexes, idx)
 					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if idx >= dr.or {
@@ -1720,14 +1725,15 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					reconstructiontime += time.Since(sss1)
 				}
 				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
-				wr1 := time.Now()
 				for i, shard := range shards {
 					if i < dr.or {
 						if written+uint64(len(shard)) <= dr.size {
+							wr1 := time.Now()
 							w.Write(shard)
 							written += uint64(len(shard))
 							writetime += time.Since(wr1)
 						} else {
+							wr1 := time.Now()
 							towrite := shard[0 : dr.size-written]
 							w.Write(towrite)
 							dr.stop = true
