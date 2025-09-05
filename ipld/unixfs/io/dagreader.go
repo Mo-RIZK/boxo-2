@@ -624,6 +624,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 						// Should not happen unless GetMany returns unexpected CIDs
 						continue
 					}
+					fmt.Fprintf(os.Stdout, "Index in n+k : %d  \n", idx)
 					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 					if idx >= dr.or {
 						reconstruct = 1
