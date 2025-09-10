@@ -440,7 +440,7 @@ func (s *Session) handleReceive(ks []cid.Cid) {
 
 	// Inform the SessionManager that this session is no longer expecting to
 	// receive the wanted keys, since we now have them
-	s.sm.CancelSessionWants(s.id, wanted)
+	//s.sm.CancelSessionWants(s.id, wanted)
 
 	s.idleTick.Stop()
 
