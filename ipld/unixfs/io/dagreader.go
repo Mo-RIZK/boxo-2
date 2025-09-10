@@ -644,7 +644,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				}
 				//wait
 				dr.wg.Wait()
-				time.Sleep(100 * time.Millisecond)
+				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
@@ -1620,7 +1620,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					}
 					//wait
 					dr.wg.Wait()
-					time.Sleep(100 * time.Millisecond)
+					//time.Sleep(100 * time.Millisecond)
 					downloadtimesixsix += time.Since(d)
 					sixsixtime++
 					//fmt.Fprintf(os.Stdout, "Finished reading from channel linksparallel and start reconstruction and verification links parallel %s  \n", time.Now().Format("15:04:05.000"))
@@ -1719,7 +1719,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 				}
 				//wait
 				dr.wg.Wait()
-				time.Sleep(100 * time.Millisecond)
+				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
 				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
