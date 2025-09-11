@@ -708,8 +708,8 @@ func (e *Engine) MessageReceived(ctx context.Context, p peer.ID, m bsmsg.BitSwap
 	// Cancel a block operation
 	sendDontHave := func(entry bsmsg.Entry) {
 		// Only add the task to the queue if the requester wants a DONT_HAVE
-		if e.sendDontHaves && entry.SendDontHave {
-		//if e.sendDontHaves {
+		//if e.sendDontHaves && entry.SendDontHave {
+		if e.sendDontHaves {
 			c := entry.Cid
 			activeEntries = append(activeEntries, peertask.Task{
 				Topic:    c,
