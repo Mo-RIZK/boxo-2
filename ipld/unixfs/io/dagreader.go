@@ -537,22 +537,21 @@ for value := range chann {
 
     // One CID might correspond to multiple indexes
     for _, idx := range indexes {
-		 wrote++
+		if idx < dr.or {
+		wrote++
         fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
         shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-        if idx >= dr.or {
-            reconstruct = 1
-        }
         dr.wg.Done()
 		if wrote >= dr.or{
 			break
 		}
     }
-
-    if wrote >= dr.or {
+	}
+	 if wrote >= dr.or {
         cancel()
         break
     }
+		
 }
 
 // Wait
