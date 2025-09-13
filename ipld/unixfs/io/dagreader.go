@@ -626,6 +626,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 
 				// Read from channel
 				for value := range chann {
+					dr.mu.Lock()
 					wrote++
 					idx, ok := cidIndexMap[value.Node.Cid()]
 					if !ok {
@@ -641,8 +642,10 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 					dr.wg.Done()
 					if wrote >= dr.or {
 						cancel()
+						dr.mu.UnLock()
 						break
 					}
+					dr.mu.UnLock()
 				}
 				//wait
 				dr.wg.Wait()
