@@ -613,42 +613,47 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				d := time.Now()
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
-				cidIndexMap := make(map[cid.Cid]int, len(dr.retnext))
-				for _, ci := range dr.retnext {
-					togetmany = append(togetmany, ci.Link.Cid)
-					cidIndexMap[ci.Link.Cid] = ci.Index
-				}
+				// Build map: cid -> list of indexes
+cidIndexMap := make(map[cid.Cid][]int)
+for _, ci := range dr.retnext {
+    togetmany = append(togetmany, ci.Link.Cid)
+    cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
+}
 
-				// Launch GetMany
-				chann := dr.serv.GetMany(ctx, togetmany)
-				shards := make([][]byte, dr.or+dr.par)
-				reconstruct := 0
+// Launch GetMany
+chann := dr.serv.GetMany(ctx, togetmany)
+shards := make([][]byte, dr.or+dr.par)
+reconstruct := 0
 
-				// Read from channel
-				for value := range chann {
-					dr.mu.Lock()
-					wrote++
-					idx, ok := cidIndexMap[value.Node.Cid()]
-					if !ok {
-						// Should not happen unless GetMany returns unexpected CIDs
-						continue
-					}
-					fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
-					dr.Indexes = append(dr.Indexes, idx)
-					shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-					if idx >= dr.or {
-						reconstruct = 1
-					}
-					dr.wg.Done()
-					if wrote >= dr.or {
-						cancel()
-						dr.mu.UnLock()
-						break
-					}
-					dr.mu.UnLock()
-				}
-				//wait
-				dr.wg.Wait()
+// Read from channel
+for value := range chann {
+
+    indexes, ok := cidIndexMap[value.Node.Cid()]
+    if !ok {
+        // Should not happen unless GetMany returns unexpected CIDs
+        continue
+    }
+
+    // One CID might correspond to multiple indexes
+    for _, idx := range indexes {
+		 wrote++
+        fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+        dr.Indexes = append(dr.Indexes, idx)
+        shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+        if idx >= dr.or {
+            reconstruct = 1
+        }
+        dr.wg.Done()
+    }
+
+    if wrote >= dr.or {
+        cancel()
+        break
+    }
+}
+
+// Wait
+dr.wg.Wait()
 				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
