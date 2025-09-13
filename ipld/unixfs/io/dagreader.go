@@ -525,7 +525,6 @@ for _, ci := range dr.retnext {
 // Launch GetMany
 chann := dr.serv.GetMany(ctx, togetmany)
 shards := make([][]byte, dr.or+dr.par)
-reconstruct := 0
 
 // Read from channel
 for value := range chann {
@@ -1616,6 +1615,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					togetmany := make([]cid.Cid, 0)
 					//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 					// Create a map of CID -> Index from linksparallel
+					wrote :=0
 					cidIndexMap := make(map[cid.Cid][]int)
 for _, ci := range linksparallel {
     togetmany = append(togetmany, ci.Link.Cid)
