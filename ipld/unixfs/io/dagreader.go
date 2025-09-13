@@ -590,7 +590,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
-	fmt.Fprintf(os.Stdout, "The length of internal nodes are : %d  \n", len(nodesToExtr))
+	fmt.Fprintf(os.Stdout, "The length of internal nodes are : %d  \n", len(dr.nodesToExtr))
 	for _, n := range dr.nodesToExtr {
 		fmt.Fprintf(os.Stdout, "There are %d links in this node  \n", len(n.Links()))
 		for _, l := range n.Links() {
