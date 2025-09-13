@@ -1639,7 +1639,7 @@ for value := range chann {
     // One CID might correspond to multiple indexes
     for _, idx := range indexes {
 		 wrote++
-        fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+        fmt.Fprintf(os.Stdout, "66 index : %d  \n", idx)
         shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
         if idx >= dr.or {
             reconstruct = 1
@@ -1743,11 +1743,12 @@ for value := range chann {
         // Should not happen unless GetMany returns unexpected CIDs
         continue
     }
-
+	k:=0
     // One CID might correspond to multiple indexes
     for _, idx := range indexes {
-		 wrote++
-        fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+		wrote++
+		k++
+        fmt.Fprintf(os.Stdout, "69 index : %d with k is %d  \n", idx,k)
         dr.Indexes = append(dr.Indexes, idx)
         shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
         if idx >= dr.or {
@@ -1755,6 +1756,7 @@ for value := range chann {
         }
         dr.wg.Done()
 		 if wrote >= dr.or {
+			 fmt.Fprintf(os.Stdout, "I will break  \n")
 			 break
 		 }
     }
