@@ -497,7 +497,9 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 	var written uint64
 	written = 0
 	nbr := 0
+	
 	for _, n := range dr.nodesToExtr {
+		fmt.Fprintf(os.Stdout, "Length of nodes to extract is : %d and length of links is: %d  \n", len(dr.nodesToExtr),len(n.Links()))
 		for _, l := range n.Links() {
 			if len(dr.retnext) < dr.or {
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
