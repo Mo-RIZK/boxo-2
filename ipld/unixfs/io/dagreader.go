@@ -1889,7 +1889,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					//contain any parity ? reconstruct if yes
 					//write data\
 					for c, shard := range shards {
-						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n",c)
+						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n", c)
 						if shard != nil {
 							if datawrittentofile+uint64(len(shard)) < filesize {
 								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
@@ -1897,14 +1897,18 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 								datawrittentofile += uint64(len(shard))
 							} else {
 								if datawrittentofile+uint64(len(shard)) == filesize {
+									fmt.Fprintf(os.Stdout, "the sammmeeeeeeeee  \n")
 									w.Write(shard)
 									return nil
 								} else {
+									fmt.Fprintf(os.Stdout, "lessssssss thannnnnnnnnn  \n")
 									towrite := shard[0 : filesize-datawrittentofile]
 									w.Write(towrite)
 									return nil
 								}
 							}
+						} else {
+							fmt.Fprintf(os.Stdout, "skipppeeeeeeeedddddddddddddddddd  \n")
 						}
 					}
 					retnext = make([][]cid.Cid, dr.or+dr.par)
