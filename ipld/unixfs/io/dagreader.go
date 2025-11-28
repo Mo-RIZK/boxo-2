@@ -1888,17 +1888,18 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
 					//contain any parity ? reconstruct if yes
 					//write data\
-					for _, shard := range shards {
+					for c, shard := range shards {
+						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n",c)
 						if shard != nil {
 							if datawrittentofile+uint64(len(shard)) < filesize {
 								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
 								w.Write(shard)
 								datawrittentofile += uint64(len(shard))
 							} else {
-								if datawrittentofile+uint64(len(shard)) == filesize{
+								if datawrittentofile+uint64(len(shard)) == filesize {
 									w.Write(shard)
-									return nil 
-								} else{
+									return nil
+								} else {
 									towrite := shard[0 : filesize-datawrittentofile]
 									w.Write(towrite)
 									return nil
