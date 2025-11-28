@@ -459,8 +459,8 @@ func (dr *dagReader) READEC(w io.Writer) (n int64, err error) {
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
 		}
-		if dr.mechanism == "ECWIS" {
-			//dr.WriteNWIS(w)
+		if dr.mechanism == "Cont" {
+			dr.WriteCont(w)
 			//fmt.Fprintf(os.Stdout, "Time taken to reconstruct nodes : %s \n", dr.timetakenDecode.String())
 			//fmt.Fprintf(os.Stdout, "Time taken for verification : %s \n", dr.verificationTime.String())
 			return 0, nil
@@ -1836,5 +1836,77 @@ dr.wg.Wait()
 	fmt.Fprintf(os.Stdout, "New log checks time is : %s  \n", checkstime.String())
 	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
 	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
+	return nil
+}
+
+
+// //////////////////// Streaming each set of shards before writing them to disk before movving to the next set of shards Contigouos data layout /////////////////////
+func (dr *dagReader) WriteCont(w io.Writer) (err error) {
+	retnext := make([][]cid.Cid, dr.or+dr.par)
+	//var writetime time.Duration
+	//var downloadtime time.Duration
+	shardswritten := 0
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	i := 0
+	var datawrittentofile uint64
+	for _, n := range dr.nodesToExtr {
+		for _, l := range n.Links() {
+			if len(retnext[i]) < 400 {
+				retnext[i] = append(retnext[i], l.Cid)
+			} else {
+				if i < dr.or+dr.par {
+					i++
+				} else {
+					wg.Add(dr.or)
+					shards := make([][]byte, dr.or+dr.par)
+					for j, _ := range retnext {
+						go func(j int) {
+							written := 0
+							datastreamed := make([]byte, 0)
+							chann := dr.serv.GetMany(dr.ctx, retnext[j])
+							// Read from channel
+							for value := range chann {
+								data, _ := unixfs.ReadUnixFSNodeData(value.Node)
+								datastreamed = append(datastreamed, data...)
+								written++
+								if written == 400 {
+									break
+								}
+							}
+							mu.Lock()
+							if shardswritten < dr.or {
+								shardswritten++
+								shards[j] = append(shards[j], datastreamed...)
+								wg.Done()
+							}
+							mu.Unlock()
+							return
+						}(j)
+					}
+					wg.Wait()
+					//contain any parity ? reconstruct if yes
+					//write data\
+					for _, shard := range shards {
+						if shard != nil {
+							if datawrittentofile + uint64(len(shard)) <= dr.size{
+								w.Write(shard)
+							} else{
+								towrite := shard[0 : dr.size-datawrittentofile]
+								w.Write(towrite)
+								return nil 
+							}
+						}
+					}
+
+				}
+				retnext = make([][]cid.Cid, dr.or+dr.par)
+				i = 0
+				shardswritten = 0
+			}
+		}
+	}
+	//fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
