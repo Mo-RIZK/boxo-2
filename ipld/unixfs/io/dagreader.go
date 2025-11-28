@@ -1890,14 +1890,19 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					//write data\
 					for _, shard := range shards {
 						if shard != nil {
-							if datawrittentofile+uint64(len(shard)) <= filesize {
+							if datawrittentofile+uint64(len(shard)) < filesize {
 								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
 								w.Write(shard)
 								datawrittentofile += uint64(len(shard))
 							} else {
-								towrite := shard[0 : filesize-datawrittentofile]
-								w.Write(towrite)
-								return nil
+								if datawrittentofile+uint64(len(shard)) == filesize{
+									w.Write(shard)
+									return nil 
+								} else{
+									towrite := shard[0 : filesize-datawrittentofile]
+									w.Write(towrite)
+									return nil
+								}
 							}
 						}
 					}
