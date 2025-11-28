@@ -1840,7 +1840,7 @@ dr.wg.Wait()
 }
 
 
-// //////////////////// Streaming each set of shards before writing them to disk before moving to the next set of shards Contiguous data layout /////////////////////
+// //////////////////// Streaming each set of shards before writing them to disk before movving to the next set of shards Contigouos data layout /////////////////////
 func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	retnext := make([][]cid.Cid, dr.or+dr.par)
 	//var writetime time.Duration
@@ -1861,7 +1861,8 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 				if i < dr.or+dr.par {
 					i++
 					fmt.Fprintf(os.Stdout, "44444444444444444444  \n")
-				} else {
+				} 
+				if i == dr.or + dr.par {
 					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
 					wg.Add(dr.or)
 					shards := make([][]byte, dr.or+dr.par)
@@ -1909,7 +1910,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					i = 0
 					shardswritten = 0
 				}
-				
+
 				fmt.Fprintf(os.Stdout, "888888888888888888888888  \n")
 			}
 		}
@@ -1918,4 +1919,5 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
+
 
