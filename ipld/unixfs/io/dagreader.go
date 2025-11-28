@@ -1851,14 +1851,14 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	i := 0
 	//countoflinks := 0
 	var datawrittentofile uint64
-	filesize := dr.size - uint64(dr.par)*dr.chunksize
+	//filesize := dr.size - uint64(dr.par)*dr.chunksize
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if len(retnext[i]) < 400 {
 				retnext[i] = append(retnext[i], l.Cid)
 				if len(retnext[i]) == 400 && i == dr.or+dr.par-1 {
 					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
-					wg.Add(dr.or)
+					wg.Add(dr.or+dr.par)
 					shards := make([][]byte, dr.or+dr.par)
 					for j, _ := range retnext {
 						go func(j int) {
@@ -1875,9 +1875,9 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 								}
 							}
 							mu.Lock()
-							if shardswritten < dr.or {
+							if shardswritten < dr.or+dr.par {
 								shardswritten++
-								fmt.Fprintf(os.Stdout, "IIIIIIINNNNNNNNNNNN data size is : %d  \n",len(datastreamed))
+								fmt.Fprintf(os.Stdout, "IIIIIIINNNNNNNNNNNN data size is : %d  \n", len(datastreamed))
 								shards[j] = append(shards[j], datastreamed...)
 								wg.Done()
 								mu.Unlock()
@@ -1892,18 +1892,18 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					for c, shard := range shards {
 						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n", c)
 						if shard != nil {
-							if datawrittentofile+uint64(len(shard)) < filesize {
+							if datawrittentofile+uint64(len(shard)) < dr.size {
 								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
 								w.Write(shard)
 								datawrittentofile += uint64(len(shard))
 							} else {
-								if datawrittentofile+uint64(len(shard)) == filesize {
+								if datawrittentofile+uint64(len(shard)) == dr.size {
 									fmt.Fprintf(os.Stdout, "the sammmeeeeeeeee  \n")
 									w.Write(shard)
 									return nil
 								} else {
 									fmt.Fprintf(os.Stdout, "lessssssss thannnnnnnnnn  \n")
-									towrite := shard[0 : filesize-datawrittentofile]
+									towrite := shard[0 : dr.size-datawrittentofile]
 									w.Write(towrite)
 									return nil
 								}
@@ -1927,4 +1927,3 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
-
