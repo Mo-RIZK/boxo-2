@@ -1871,6 +1871,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 								datastreamed = append(datastreamed, data...)
 								written++
 								if written == 400 {
+									fmt.Fprintf(os.Stdout, "The sizeeee issssssss %d \n",len(datastreamed))
 									break
 								}
 							}
