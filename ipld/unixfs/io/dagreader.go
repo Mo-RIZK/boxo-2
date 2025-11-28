@@ -1845,6 +1845,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	retnext := make([][]cid.Cid, dr.or+dr.par)
 	//var writetime time.Duration
 	//var downloadtime time.Duration
+	fmt.Fprintf(os.Stdout, "111111111111111111111  \n")
 	shardswritten := 0
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -1852,12 +1853,16 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	var datawrittentofile uint64
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
+			fmt.Fprintf(os.Stdout, "2222222222222222  \n")
 			if len(retnext[i]) < 400 {
 				retnext[i] = append(retnext[i], l.Cid)
+				fmt.Fprintf(os.Stdout, "3333333333333333  \n")
 			} else {
 				if i < dr.or+dr.par {
 					i++
+					fmt.Fprintf(os.Stdout, "44444444444444444444  \n")
 				} else {
+					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
 					wg.Add(dr.or)
 					shards := make([][]byte, dr.or+dr.par)
 					for j, _ := range retnext {
@@ -1885,16 +1890,18 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 						}(j)
 					}
 					wg.Wait()
+					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
 					//contain any parity ? reconstruct if yes
 					//write data\
 					for _, shard := range shards {
 						if shard != nil {
-							if datawrittentofile + uint64(len(shard)) <= dr.size{
+							if datawrittentofile+uint64(len(shard)) <= dr.size {
+								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
 								w.Write(shard)
-							} else{
+							} else {
 								towrite := shard[0 : dr.size-datawrittentofile]
 								w.Write(towrite)
-								return nil 
+								return nil
 							}
 						}
 					}
@@ -1903,6 +1910,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 				retnext = make([][]cid.Cid, dr.or+dr.par)
 				i = 0
 				shardswritten = 0
+				fmt.Fprintf(os.Stdout, "888888888888888888888888  \n")
 			}
 		}
 	}
