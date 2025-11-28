@@ -1851,6 +1851,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	i := 0
 	//countoflinks := 0
 	var datawrittentofile uint64
+	filesize := dr.size - uint64(dr.par)*dr.chunksize
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
 			if len(retnext[i]) < 400 {
@@ -1889,12 +1890,12 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					//write data\
 					for _, shard := range shards {
 						if shard != nil {
-							if datawrittentofile+uint64(len(shard)) <= dr.size {
+							if datawrittentofile+uint64(len(shard)) <= filesize {
 								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
 								w.Write(shard)
 								datawrittentofile += uint64(len(shard))
 							} else {
-								towrite := shard[0 : dr.size-datawrittentofile]
+								towrite := shard[0 : filesize-datawrittentofile]
 								w.Write(towrite)
 								return nil
 							}
@@ -1915,3 +1916,4 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
+
