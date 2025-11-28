@@ -1877,6 +1877,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 							mu.Lock()
 							if shardswritten < dr.or {
 								shardswritten++
+								fmt.Fprintf(os.Stdout, "IIIIIIINNNNNNNNNNNN data size is : %d  \n",len(datastreamed))
 								shards[j] = append(shards[j], datastreamed...)
 								wg.Done()
 								mu.Unlock()
@@ -1926,5 +1927,4 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
-
 
