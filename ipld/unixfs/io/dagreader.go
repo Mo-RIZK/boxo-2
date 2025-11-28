@@ -1888,8 +1888,8 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					wg.Wait()
 					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
 					//contain any parity ? reconstruct if yes
-					enc, _ := reedsolomon.New(dr.or, dr.par)
-					enc.Reconstruct(shards)
+					//enc, _ := reedsolomon.New(dr.or, dr.par)
+					//enc.Reconstruct(shards)
 					//write data\
 					for c, shard := range shards {
 						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n", c)
