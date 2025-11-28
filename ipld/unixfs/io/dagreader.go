@@ -1879,8 +1879,8 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 								shardswritten++
 								shards[j] = append(shards[j], datastreamed...)
 								wg.Done()
+								mu.Unlock()
 							}
-							mu.Unlock()
 							return
 						}(j)
 					}
@@ -1916,4 +1916,5 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
+
 
