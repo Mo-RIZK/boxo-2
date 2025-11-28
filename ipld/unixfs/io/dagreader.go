@@ -1892,6 +1892,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 							if datawrittentofile+uint64(len(shard)) <= dr.size {
 								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
 								w.Write(shard)
+								datawrittentofile += uint64(len(shard))
 							} else {
 								towrite := shard[0 : dr.size-datawrittentofile]
 								w.Write(towrite)
@@ -1914,4 +1915,3 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }
-
