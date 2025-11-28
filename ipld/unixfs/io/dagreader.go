@@ -1849,17 +1849,13 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	i := 0
-	countoflinks := 0
+	//countoflinks := 0
 	var datawrittentofile uint64
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			countoflinks ++
 			if len(retnext[i]) < 400 {
 				retnext[i] = append(retnext[i], l.Cid)
 				if len(retnext[i]) == 400 && i == dr.or+dr.par-1 {
-					for _, ret := range retnext {
-						fmt.Fprintf(os.Stdout, "AAAAAAAAAAA length of this ret is : %d and count of links is : %d  \n", len(ret),countoflinks)
-					}
 					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
 					wg.Add(dr.or)
 					shards := make([][]byte, dr.or+dr.par)
@@ -1909,6 +1905,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 				}
 			} else {
 				i++
+				retnext[i] = append(retnext[i], l.Cid)
 				fmt.Fprintf(os.Stdout, "44444444444444444444  \n")
 			}
 		}
