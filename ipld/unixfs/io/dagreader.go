@@ -1854,66 +1854,62 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	var datawrittentofile uint64
 	for _, n := range dr.nodesToExtr {
 		for _, l := range n.Links() {
-			countoflinks ++
-			fmt.Fprintf(os.Stdout, "2222222222222222 count of links is : %d  \n",countoflinks)
+			countoflinks++
+			fmt.Fprintf(os.Stdout, "2222222222222222 count of links is : %d  \n", countoflinks)
 			if len(retnext[i]) < 400 {
 				retnext[i] = append(retnext[i], l.Cid)
 				fmt.Fprintf(os.Stdout, "3333333333333333  \n")
-			} else {
-				if i < dr.or+dr.par {
-					i++
-					fmt.Fprintf(os.Stdout, "44444444444444444444  \n")
-				}
-				if i == dr.or+dr.par {
-					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
-					wg.Add(dr.or)
-					shards := make([][]byte, dr.or+dr.par)
-					for j, _ := range retnext {
-						go func(j int) {
-							written := 0
-							datastreamed := make([]byte, 0)
-							chann := dr.serv.GetMany(dr.ctx, retnext[j])
-							// Read from channel
-							for value := range chann {
-								data, _ := unixfs.ReadUnixFSNodeData(value.Node)
-								datastreamed = append(datastreamed, data...)
-								written++
-								if written == 400 {
-									break
+				if len(retnext[i]) == 400 && i == dr.or + dr.par - 1{
+						fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
+						wg.Add(dr.or)
+						shards := make([][]byte, dr.or+dr.par)
+						for j, _ := range retnext {
+							go func(j int) {
+								written := 0
+								datastreamed := make([]byte, 0)
+								chann := dr.serv.GetMany(dr.ctx, retnext[j])
+								// Read from channel
+								for value := range chann {
+									data, _ := unixfs.ReadUnixFSNodeData(value.Node)
+									datastreamed = append(datastreamed, data...)
+									written++
+									if written == 400 {
+										break
+									}
+								}
+								mu.Lock()
+								if shardswritten < dr.or {
+									shardswritten++
+									shards[j] = append(shards[j], datastreamed...)
+									wg.Done()
+								}
+								mu.Unlock()
+								return
+							}(j)
+						}
+						wg.Wait()
+						fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
+						//contain any parity ? reconstruct if yes
+						//write data\
+						for _, shard := range shards {
+							if shard != nil {
+								if datawrittentofile+uint64(len(shard)) <= dr.size {
+									fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
+									w.Write(shard)
+								} else {
+									towrite := shard[0 : dr.size-datawrittentofile]
+									w.Write(towrite)
+									return nil
 								}
 							}
-							mu.Lock()
-							if shardswritten < dr.or {
-								shardswritten++
-								shards[j] = append(shards[j], datastreamed...)
-								wg.Done()
-							}
-							mu.Unlock()
-							return
-						}(j)
-					}
-					wg.Wait()
-					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
-					//contain any parity ? reconstruct if yes
-					//write data\
-					for _, shard := range shards {
-						if shard != nil {
-							if datawrittentofile+uint64(len(shard)) <= dr.size {
-								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
-								w.Write(shard)
-							} else {
-								towrite := shard[0 : dr.size-datawrittentofile]
-								w.Write(towrite)
-								return nil
-							}
 						}
-					}
-					retnext = make([][]cid.Cid, dr.or+dr.par)
-					i = 0
-					shardswritten = 0
+						retnext = make([][]cid.Cid, dr.or+dr.par)
+						i = 0
+						shardswritten = 0
 				}
-
-				fmt.Fprintf(os.Stdout, "888888888888888888888888  \n")
+			} else {
+					i++
+					fmt.Fprintf(os.Stdout, "44444444444444444444  \n")
 			}
 		}
 	}
