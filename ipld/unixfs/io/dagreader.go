@@ -1858,7 +1858,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 				retnext[i] = append(retnext[i], l.Cid)
 				if len(retnext[i]) == 400 && i == dr.or+dr.par-1 {
 					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
-					wg.Add(dr.or)
+					wg.Add(dr.or + dr.par)
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
    go func(j int) {
