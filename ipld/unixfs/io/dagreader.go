@@ -1895,6 +1895,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
         // 4. Place the block in all positions corresponding to duplicates
         for _, idx := range indexes {
             blocks[idx] = data
+			fmt.Printf("Block %d size: %d\n", idx, len(data))
         }
     }
 
