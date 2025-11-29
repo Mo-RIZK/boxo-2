@@ -1870,7 +1870,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
     for idx, c := range inputCIDs {
         posMap[c] = append(posMap[c], idx)
     }
-
+fmt.Fprintf(os.Stdout, "Numberrrrrrrrrrrrrrr of values in posmapppppp is : %d \n",len(posMap))
     // 2. Allocate slice for blocks in original order
     blocks := make([][]byte, len(inputCIDs))
 
