@@ -1862,6 +1862,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
     go func(j int) {
+		wrote := 0
         inputCIDs := retnext[j] // 400 CIDs, may contain duplicates
 		
         // 1. Build mapping CID -> positions where it occurs
