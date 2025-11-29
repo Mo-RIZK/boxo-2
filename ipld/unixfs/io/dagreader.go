@@ -518,46 +518,46 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 						togetmany := make([]cid.Cid, 0)
 						//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 						// Create a map of CID -> Index from linksparallel
-cidIndexMap := make(map[cid.Cid][]int)
-for _, ci := range dr.retnext {
-    togetmany = append(togetmany, ci.Link.Cid)
-    cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
-}
+						cidIndexMap := make(map[cid.Cid][]int)
+						for _, ci := range dr.retnext {
+							togetmany = append(togetmany, ci.Link.Cid)
+							cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
+						}
 
-// Launch GetMany
-chann := dr.serv.GetMany(ctx, togetmany)
-shards := make([][]byte, dr.or+dr.par)
+						// Launch GetMany
+						chann := dr.serv.GetMany(ctx, togetmany)
+						shards := make([][]byte, dr.or+dr.par)
 
-// Read from channel
-for value := range chann {
+						// Read from channel
+						for value := range chann {
 
-    indexes, ok := cidIndexMap[value.Node.Cid()]
-    if !ok {
-        // Should not happen unless GetMany returns unexpected CIDs
-        continue
-    }
+							indexes, ok := cidIndexMap[value.Node.Cid()]
+							if !ok {
+								// Should not happen unless GetMany returns unexpected CIDs
+								continue
+							}
 
-    // One CID might correspond to multiple indexes
-    for _, idx := range indexes {
-		if idx < dr.or {
-		wrote++
-        fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
-        shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-        dr.wg.Done()
-		if wrote >= dr.or{
-			break
-		}
-    }
-	}
-	 if wrote >= dr.or {
-        cancel()
-        break
-    }
-		
-}
+							// One CID might correspond to multiple indexes
+							for _, idx := range indexes {
+								if idx < dr.or {
+									wrote++
+									fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+									shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+									dr.wg.Done()
+									if wrote >= dr.or{
+										break
+									}
+								}
+							}
+							if wrote >= dr.or {
+								cancel()
+								break
+							}
 
-// Wait
-dr.wg.Wait()
+						}
+
+						// Wait
+						dr.wg.Wait()
 						downloadtime += time.Since(d)
 						//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
 						//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
@@ -602,7 +602,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 	sixninetime := 0
 	nbver := 0
 	nbr := 0
-	sixnine := false  
+	sixnine := false
 	enc, _ := reedsolomon.New(dr.or, dr.par)
 	var written uint64
 	written = 0
@@ -630,48 +630,48 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
 				// Build map: cid -> list of indexes
-cidIndexMap := make(map[cid.Cid][]int)
-for _, ci := range dr.retnext {
-    togetmany = append(togetmany, ci.Link.Cid)
-    cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
-}
+				cidIndexMap := make(map[cid.Cid][]int)
+				for _, ci := range dr.retnext {
+					togetmany = append(togetmany, ci.Link.Cid)
+					cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
+				}
 
-// Launch GetMany
-chann := dr.serv.GetMany(ctx, togetmany)
-shards := make([][]byte, dr.or+dr.par)
-reconstruct := 0
+				// Launch GetMany
+				chann := dr.serv.GetMany(ctx, togetmany)
+				shards := make([][]byte, dr.or+dr.par)
+				reconstruct := 0
 
-// Read from channel
-for value := range chann {
+				// Read from channel
+				for value := range chann {
 
-    indexes, ok := cidIndexMap[value.Node.Cid()]
-    if !ok {
-        // Should not happen unless GetMany returns unexpected CIDs
-        continue
-    }
+					indexes, ok := cidIndexMap[value.Node.Cid()]
+					if !ok {
+						// Should not happen unless GetMany returns unexpected CIDs
+						continue
+					}
 
-    // One CID might correspond to multiple indexes
-    for _, idx := range indexes {
-		 wrote++
-        fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
-        shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-        if idx >= dr.or {
-            reconstruct = 1
-        }
-        dr.wg.Done()
-		if wrote >= dr.or {
-			break
-		}
-    }
+					// One CID might correspond to multiple indexes
+					for _, idx := range indexes {
+						wrote++
+						fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+						shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+						if idx >= dr.or {
+							reconstruct = 1
+						}
+						dr.wg.Done()
+						if wrote >= dr.or {
+							break
+						}
+					}
 
-    if wrote >= dr.or {
-        cancel()
-        break
-    }
-}
+					if wrote >= dr.or {
+						cancel()
+						break
+					}
+				}
 
-// Wait
-dr.wg.Wait()
+				// Wait
+				dr.wg.Wait()
 				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
@@ -1618,47 +1618,47 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					// Create a map of CID -> Index from linksparallel
 					wrote :=0
 					cidIndexMap := make(map[cid.Cid][]int)
-for _, ci := range linksparallel {
-    togetmany = append(togetmany, ci.Link.Cid)
-    cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
-}
+					for _, ci := range linksparallel {
+						togetmany = append(togetmany, ci.Link.Cid)
+						cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
+					}
 
-// Launch GetMany
-chann := dr.serv.GetMany(ctx, togetmany)
-shards := make([][]byte, dr.or+dr.par)
-reconstruct := 0
+					// Launch GetMany
+					chann := dr.serv.GetMany(ctx, togetmany)
+					shards := make([][]byte, dr.or+dr.par)
+					reconstruct := 0
 
-// Read from channel
-for value := range chann {
+					// Read from channel
+					for value := range chann {
 
-    indexes, ok := cidIndexMap[value.Node.Cid()]
-    if !ok {
-        // Should not happen unless GetMany returns unexpected CIDs
-        continue
-    }
+						indexes, ok := cidIndexMap[value.Node.Cid()]
+						if !ok {
+							// Should not happen unless GetMany returns unexpected CIDs
+							continue
+						}
 
-    // One CID might correspond to multiple indexes
-    for _, idx := range indexes {
-		 wrote++
-        fmt.Fprintf(os.Stdout, "66 index : %d  \n", idx)
-        shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-        if idx >= dr.or {
-            reconstruct = 1
-        }
-        dr.wg.Done()
-		 if wrote >= dr.or {
-			 break
-		 }
-    }
+						// One CID might correspond to multiple indexes
+						for _, idx := range indexes {
+							wrote++
+							fmt.Fprintf(os.Stdout, "66 index : %d  \n", idx)
+							shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+							if idx >= dr.or {
+								reconstruct = 1
+							}
+							dr.wg.Done()
+							if wrote >= dr.or {
+								break
+							}
+						}
 
-    if wrote >= dr.or {
-        cancel()
-        break
-    }
-}
+						if wrote >= dr.or {
+							cancel()
+							break
+						}
+					}
 
-// Wait
-dr.wg.Wait()
+					// Wait
+					dr.wg.Wait()
 					//time.Sleep(100 * time.Millisecond)
 					downloadtimesixsix += time.Since(d)
 					sixsixtime++
@@ -1725,51 +1725,51 @@ dr.wg.Wait()
 				d := time.Now()
 				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 				// Create a map of CID -> Index from linksparallel
-cidIndexMap := make(map[cid.Cid][]int)
-for _, ci := range dr.retnext {
-    togetmany = append(togetmany, ci.Link.Cid)
-    cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
-}
+				cidIndexMap := make(map[cid.Cid][]int)
+				for _, ci := range dr.retnext {
+					togetmany = append(togetmany, ci.Link.Cid)
+					cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
+				}
 
-// Launch GetMany
-chann := dr.serv.GetMany(ctx, togetmany)
-shards := make([][]byte, dr.or+dr.par)
-reconstruct := 0
+				// Launch GetMany
+				chann := dr.serv.GetMany(ctx, togetmany)
+				shards := make([][]byte, dr.or+dr.par)
+				reconstruct := 0
 
-// Read from channel
-for value := range chann {
+				// Read from channel
+				for value := range chann {
 
-    indexes, ok := cidIndexMap[value.Node.Cid()]
-    if !ok {
-        // Should not happen unless GetMany returns unexpected CIDs
-        continue
-    }
-	k:=0
-    // One CID might correspond to multiple indexes
-    for _, idx := range indexes {
-		wrote++
-		k++
-        fmt.Fprintf(os.Stdout, "69 index : %d with k is %d  \n", idx,k)
-        dr.Indexes = append(dr.Indexes, idx)
-        shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-        if idx >= dr.or {
-            reconstruct = 1
-        }
-        dr.wg.Done()
-		 if wrote >= dr.or {
-			 fmt.Fprintf(os.Stdout, "I will break  \n")
-			 break
-		 }
-    }
+					indexes, ok := cidIndexMap[value.Node.Cid()]
+					if !ok {
+						// Should not happen unless GetMany returns unexpected CIDs
+						continue
+					}
+					k:=0
+					// One CID might correspond to multiple indexes
+					for _, idx := range indexes {
+						wrote++
+						k++
+						fmt.Fprintf(os.Stdout, "69 index : %d with k is %d  \n", idx,k)
+						dr.Indexes = append(dr.Indexes, idx)
+						shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+						if idx >= dr.or {
+							reconstruct = 1
+						}
+						dr.wg.Done()
+						if wrote >= dr.or {
+							fmt.Fprintf(os.Stdout, "I will break  \n")
+							break
+						}
+					}
 
-    if wrote >= dr.or {
-        cancel()
-        break
-    }
-}
+					if wrote >= dr.or {
+						cancel()
+						break
+					}
+				}
 
-// Wait
-dr.wg.Wait()
+				// Wait
+				dr.wg.Wait()
 				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
@@ -1861,45 +1861,45 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					wg.Add(dr.or + dr.par)
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
-   go func(j int) {
-    inputCIDs := retnext[j] // exactly 400 CIDs
-    fmt.Fprintf(os.Stdout, "CIDs count = %d\n", len(inputCIDs))
+						go func(j int) {
+							inputCIDs := retnext[j] // exactly 400 CIDs
+							fmt.Fprintf(os.Stdout, "CIDs count = %d\n", len(inputCIDs))
 
-    // Direct output buffer
-    datastreamed := make([]byte, 0, len(inputCIDs)*dr.chunksize)
+							// Direct output buffer
+							datastreamed := make([]byte, 0)
 
-    // Retrieve blocks SEQUENTIALLY (one by one)
-    for idx, c := range inputCIDs {
+							// Retrieve blocks SEQUENTIALLY (one by one)
+							for idx, c := range inputCIDs {
 
-        // SEQUENTIAL → GetBlock (NOT GetMany)
-        blk, err := dr.serv.GetBlock(dr.ctx, c)
-        if err != nil {
-            panic(fmt.Sprintf("Failed to retrieve CID %s at position %d: %v", c, idx, err))
-        }
+								// SEQUENTIAL → GetBlock (NOT GetMany)
+								blk, err := dr.serv.Get(dr.ctx, c)
+								if err != nil {
+									panic(fmt.Sprintf("Failed to retrieve CID %s at position %d: %v", c, idx, err))
+								}
 
-        data, err := unixfs.ReadUnixFSNodeData(blk)
-        if err != nil {
-            panic(fmt.Sprintf("Failed to extract data for CID %s: %v", c, err))
-        }
+								data, err := unixfs.ReadUnixFSNodeData(blk)
+								if err != nil {
+									panic(fmt.Sprintf("Failed to extract data for CID %s: %v", c, err))
+								}
 
-        // Append directly in order
-        datastreamed = append(datastreamed, data...)
-    }
+								// Append directly in order
+								datastreamed = append(datastreamed, data...)
+							}
 
-    fmt.Fprintf(os.Stdout,
-        "Shard %d data size = %d bytes (all 400 blocks retrieved sequentially)\n",
-        j, len(datastreamed))
+							fmt.Fprintf(os.Stdout,
+								"Shard %d data size = %d bytes (all 400 blocks retrieved sequentially)\n",
+								j, len(datastreamed))
 
-    // Write shard
-    mu.Lock()
-    shards[j] = datastreamed
-    mu.Unlock()
+							// Write shard
+							mu.Lock()
+							shards[j] = datastreamed
+							mu.Unlock()
 
-    wg.Done()
-}(j)
+							wg.Done()
+						}(j)
 
 
-}
+					}
 					wg.Wait()
 					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
 					//contain any parity ? reconstruct if yes
