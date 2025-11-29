@@ -1862,67 +1862,42 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
    go func(j int) {
-    inputCIDs := retnext[j] // exactly 400 CIDs per shard
-	   fmt.Fprintf(os.Stdout, "Numberrrrrrrrrrrrrrr of CIDs is : %d \n",len(inputCIDs))
+    inputCIDs := retnext[j] // exactly 400 CIDs
+    fmt.Fprintf(os.Stdout, "CIDs count = %d\n", len(inputCIDs))
 
-    // 1. Map each CID to all positions it occurs in (to preserve duplicates)
-    posMap := make(map[cid.Cid][]int)
+    // Direct output buffer
+    datastreamed := make([]byte, 0, len(inputCIDs)*dr.chunksize)
+
+    // Retrieve blocks SEQUENTIALLY (one by one)
     for idx, c := range inputCIDs {
-        posMap[c] = append(posMap[c], idx)
-    }
-fmt.Fprintf(os.Stdout, "Numberrrrrrrrrrrrrrr of values in posmapppppp is : %d \n",len(posMap))
-    // 2. Allocate slice for blocks in original order
-    blocks := make([][]byte, len(inputCIDs))
 
-    // 3. Fetch blocks from GetMany
-    ch := dr.serv.GetMany(dr.ctx, inputCIDs)
-wrr := 0
-    for value := range ch {
-        if value == nil || value.Node == nil {
-            //panic("GetMany returned nil Node for a CID") // safety check
-        } else{
-			 cidVal := value.Node.Cid()
-        indexes, ok := posMap[cidVal]
-        if !ok {
-            panic(fmt.Sprintf("Unexpected CID returned by GetMany: %s", cidVal))
-        }
-
-        data, err := unixfs.ReadUnixFSNodeData(value.Node)
+        // SEQUENTIAL → GetBlock (NOT GetMany)
+        blk, err := dr.serv.GetBlock(dr.ctx, c)
         if err != nil {
-            panic(fmt.Sprintf("Failed to read block data for CID %s: %v", cidVal, err))
+            panic(fmt.Sprintf("Failed to retrieve CID %s at position %d: %v", c, idx, err))
         }
 
-        // Fill all positions corresponding to duplicates
-        for _, idx := range indexes {
-			wrr ++
-            blocks[idx] = data
-      		}
-		}
-       
-    }
-fmt.Fprintf(os.Stdout, "Numberrrrrrrrrrrrrrr of CIDs writttennnnn to blocksssssss is : %d \n",wrr)
-    // 4. Check that all blocks were filled
-    for i, blk := range blocks {
-        if blk == nil {
-            panic(fmt.Sprintf("Block at index %d was not filled", i))
+        data, err := unixfs.ReadUnixFSNodeData(blk)
+        if err != nil {
+            panic(fmt.Sprintf("Failed to extract data for CID %s: %v", c, err))
         }
+
+        // Append directly in order
+        datastreamed = append(datastreamed, data...)
     }
 
-    // 5. Rebuild the shard in original order, including duplicates
-    datastreamed := make([]byte, 0)
-    for _, blk := range blocks {
-        datastreamed = append(datastreamed, blk...)
-    }
-	   
+    fmt.Fprintf(os.Stdout,
+        "Shard %d data size = %d bytes (all 400 blocks retrieved sequentially)\n",
+        j, len(datastreamed))
 
-    // 6. Safely write the shard to the shared slice
+    // Write shard
     mu.Lock()
     shards[j] = datastreamed
     mu.Unlock()
 
-    // 7. Mark shard as done
     wg.Done()
 }(j)
+
 
 }
 					wg.Wait()
