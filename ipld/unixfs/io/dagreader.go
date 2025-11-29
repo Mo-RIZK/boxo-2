@@ -499,7 +499,7 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 	nbr := 0
 	fmt.Fprintf(os.Stdout, "OOOOOOOOOMMMMMMMMMMMNNNNNNNNNNNNNNNN  \n")
 	for _, n := range dr.nodesToExtr {
-		fmt.Fprintf(os.Stdout, "Length of nodes to extract is : %d and length of links is: %d  \n", len(dr.nodesToExtr),len(n.Links()))
+		fmt.Fprintf(os.Stdout, "Length of nodes to extract is : %d and length of links is: %d  \n", len(dr.nodesToExtr), len(n.Links()))
 		for _, l := range n.Links() {
 			if len(dr.retnext) < dr.or {
 				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
@@ -544,7 +544,7 @@ func (dr *dagReader) WriteNOriginal(w io.Writer) (err error) {
 									fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
 									shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 									dr.wg.Done()
-									if wrote >= dr.or{
+									if wrote >= dr.or {
 										break
 									}
 								}
@@ -1616,7 +1616,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 					togetmany := make([]cid.Cid, 0)
 					//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
 					// Create a map of CID -> Index from linksparallel
-					wrote :=0
+					wrote := 0
 					cidIndexMap := make(map[cid.Cid][]int)
 					for _, ci := range linksparallel {
 						togetmany = append(togetmany, ci.Link.Cid)
@@ -1678,7 +1678,6 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 						reconstructiontime += time.Since(sss)
 					}
 					//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start of writing links parallel  %s  \n", time.Now().Format("15:04:05.000"))
-
 
 					for i, shard := range shards {
 						if i < dr.or {
@@ -1744,12 +1743,12 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 						// Should not happen unless GetMany returns unexpected CIDs
 						continue
 					}
-					k:=0
+					k := 0
 					// One CID might correspond to multiple indexes
 					for _, idx := range indexes {
 						wrote++
 						k++
-						fmt.Fprintf(os.Stdout, "69 index : %d with k is %d  \n", idx,k)
+						fmt.Fprintf(os.Stdout, "69 index : %d with k is %d  \n", idx, k)
 						dr.Indexes = append(dr.Indexes, idx)
 						shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
 						if idx >= dr.or {
@@ -1845,7 +1844,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//var writetime time.Duration
 	//var downloadtime time.Duration
 	fmt.Fprintf(os.Stdout, "111111111111111111111  \n")
-	//shardswritten := 0
+	shardswritten := 0
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	i := 0
@@ -1858,7 +1857,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 				retnext[i] = append(retnext[i], l.Cid)
 				if len(retnext[i]) == 400 && i == dr.or+dr.par-1 {
 					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
-					wg.Add(dr.or + dr.par)
+					wg.Add(dr.or)
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
 						go func(j int) {
@@ -1869,17 +1868,16 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 							datastreamed := make([]byte, 0)
 
 							// Retrieve blocks SEQUENTIALLY (one by one)
-							for idx, c := range inputCIDs {
+							for _, c := range inputCIDs {
 
 								// SEQUENTIAL → GetBlock (NOT GetMany)
 								blk, err := dr.serv.Get(dr.ctx, c)
 								if err != nil {
-									panic(fmt.Sprintf("Failed to retrieve CID %s at position %d: %v", c, idx, err))
+									return
 								}
 
 								data, err := unixfs.ReadUnixFSNodeData(blk)
 								if err != nil {
-									panic(fmt.Sprintf("Failed to extract data for CID %s: %v", c, err))
 								}
 
 								// Append directly in order
@@ -1892,12 +1890,14 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
 							// Write shard
 							mu.Lock()
-							shards[j] = datastreamed
-							mu.Unlock()
+							if shardswritten < dr.or {
+								shards[j] = datastreamed
+								mu.Unlock()
 
-							wg.Done()
+								wg.Done()
+							}
+
 						}(j)
-
 
 					}
 					wg.Wait()
