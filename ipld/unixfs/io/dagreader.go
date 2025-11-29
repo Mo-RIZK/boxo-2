@@ -1862,56 +1862,59 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
     go func(j int) {
-		wrote := 0
-        inputCIDs := retnext[j] // 400 CIDs, may contain duplicates
-		
-        // 1. Build mapping CID -> positions where it occurs
-        posMap := make(map[cid.Cid][]int)
-        for idx, c := range inputCIDs {
-            posMap[c] = append(posMap[c], idx)
+    inputCIDs := retnext[j] // 400 CIDs, may contain duplicates
+
+    // 1. Map each CID to all positions it occurs in
+    posMap := make(map[cid.Cid][]int)
+    for idx, c := range inputCIDs {
+        posMap[c] = append(posMap[c], idx)
+    }
+
+    // 2. Prepare output slice for all blocks
+    blocks := make([][]byte, len(inputCIDs))
+
+    // 3. Fetch blocks from GetMany
+    ch := dr.serv.GetMany(dr.ctx, inputCIDs)
+
+    for value := range ch {
+        if value == nil || value.Node == nil {
+            continue // skip nil nodes
         }
 
-        // 2. When reading from GetMany, store blocks once per CID
-        blocks := make([][]byte,400)
-
-        ch := dr.serv.GetMany(dr.ctx, inputCIDs)
-
-        for value := range ch {
-			indexes, ok := posMap[value.Node.Cid()]
-   			 if !ok {
-       				 // Should not happen unless GetMany returns unexpected CIDs
-       				 continue
-   			 }
-			 for _, idx := range indexes {
-		 wrote++
-        blocks[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
-		 if wrote == 400 {
-			 break
-				 }
-		    }
+        cidVal := value.Node.Cid()
+        indexes, ok := posMap[cidVal]
+        if !ok {
+            continue // unexpected CID, ignore
         }
 
-        // 3. Rebuild the output stream in correct order INCLUDING duplicates
-        datastreamed := make([]byte, 0)
-
-        for _, c := range blocks {
-            datastreamed = append(datastreamed, c...)
+        data, err := unixfs.ReadUnixFSNodeData(value.Node)
+        if err != nil || len(data) == 0 {
+            continue // skip invalid data
         }
 
-        // 4. Sync write the shard
-        mu.Lock()
-        if shardswritten < dr.or {
-            shardswritten++
-            fmt.Fprintf(os.Stdout,
-                "IIIIIIINNNNN data size is : %d\n",
-                len(datastreamed),
-            )
-            shards[j] = append(shards[j], datastreamed...)
-            wg.Done()
+        // 4. Place the block in all positions corresponding to duplicates
+        for _, idx := range indexes {
+            blocks[idx] = data
         }
-        mu.Unlock()
+    }
 
-    }(j)
+    // 5. Rebuild the output stream in original order, including duplicates
+    var datastreamed []byte
+    for _, blk := range blocks {
+        datastreamed = append(datastreamed, blk...)
+    }
+
+    // 6. Sync write the shard
+    mu.Lock()
+    if shardswritten < dr.or {
+        shardswritten++
+        fmt.Fprintf(os.Stdout, "Shard %d data size: %d\n", j, len(datastreamed))
+        shards[j] = append(shards[j], datastreamed...)
+        wg.Done()
+    }
+    mu.Unlock()
+}(j)
+
 }
 					wg.Wait()
 					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
