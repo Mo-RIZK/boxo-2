@@ -1860,32 +1860,50 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
 					wg.Add(dr.or)
 					shards := make([][]byte, dr.or+dr.par)
-					for j, _ := range retnext {
-						go func(j int) {
-							written := 0
-							datastreamed := make([]byte, 0)
-							chann := dr.serv.GetMany(dr.ctx, retnext[j])
-							// Read from channel
-							for value := range chann {
-								data, _ := unixfs.ReadUnixFSNodeData(value.Node)
-								datastreamed = append(datastreamed, data...)
-								written++
-								if written == 400 {
-									fmt.Fprintf(os.Stdout, "The sizeeee issssssss %d \n",len(datastreamed))
-									break
-								}
-							}
-							mu.Lock()
-							if shardswritten < dr.or{
-								shardswritten++
-								fmt.Fprintf(os.Stdout, "IIIIIIINNNNNNNNNNNN data size is : %d  \n", len(datastreamed))
-								shards[j] = append(shards[j], datastreamed...)
-								wg.Done()
-								mu.Unlock()
-							}
-							return
-						}(j)
-					}
+					for j := range retnext {
+    go func(j int) {
+
+        inputCIDs := retnext[j] // 400 CIDs, may contain duplicates
+
+        // 1. Build mapping CID -> positions where it occurs
+        posMap := make(map[cid.Cid][]int)
+        for idx, c := range inputCIDs {
+            posMap[c] = append(posMap[c], idx)
+        }
+
+        // 2. When reading from GetMany, store blocks once per CID
+        blocks := make(map[cid.Cid][]byte)
+
+        ch := dr.serv.GetMany(dr.ctx, inputCIDs)
+
+        for value := range ch {
+            data, _ := unixfs.ReadUnixFSNodeData(value.Node)
+            blocks[value.Cid] = data
+        }
+
+        // 3. Rebuild the output stream in correct order INCLUDING duplicates
+        datastreamed := make([]byte, 0, len(inputCIDs)*dr.chunksize)
+
+        for _, c := range inputCIDs {
+            blk := blocks[c]
+            datastreamed = append(datastreamed, blk...)
+        }
+
+        // 4. Sync write the shard
+        mu.Lock()
+        if shardswritten < dr.or {
+            shardswritten++
+            fmt.Fprintf(os.Stdout,
+                "IIIIIIINNNNN data size is : %d\n",
+                len(datastreamed),
+            )
+            shards[j] = append(shards[j], datastreamed...)
+            wg.Done()
+        }
+        mu.Unlock()
+
+    }(j)
+}
 					wg.Wait()
 					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
 					//contain any parity ? reconstruct if yes
