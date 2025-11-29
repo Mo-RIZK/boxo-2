@@ -1878,11 +1878,11 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
         for value := range ch {
             data, _ := unixfs.ReadUnixFSNodeData(value.Node)
-            blocks[value.Cid] = data
+            blocks[value.Node.Cid()] = data
         }
 
         // 3. Rebuild the output stream in correct order INCLUDING duplicates
-        datastreamed := make([]byte, 0, len(inputCIDs)*dr.chunksize)
+        datastreamed := make([]byte, 0)
 
         for _, c := range inputCIDs {
             blk := blocks[c]
