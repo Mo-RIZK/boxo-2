@@ -1952,7 +1952,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					}
 					retnext = make([][]cid.Cid, dr.or+dr.par)
 					i = 0
-					shardswritten = 0
+					//shardswritten = 0
 				}
 			} else {
 				i++
