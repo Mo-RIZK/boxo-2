@@ -1861,16 +1861,16 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					wg.Add(dr.or)
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
-    go func(j int) {
-    inputCIDs := retnext[j] // 400 CIDs, may contain duplicates
+   go func(j int) {
+    inputCIDs := retnext[j] // exactly 400 CIDs per shard
 
-    // 1. Map each CID to all positions it occurs in
+    // 1. Map each CID to all positions it occurs in (to preserve duplicates)
     posMap := make(map[cid.Cid][]int)
     for idx, c := range inputCIDs {
         posMap[c] = append(posMap[c], idx)
     }
 
-    // 2. Prepare output slice for all blocks
+    // 2. Allocate slice for blocks in original order
     blocks := make([][]byte, len(inputCIDs))
 
     // 3. Fetch blocks from GetMany
@@ -1878,42 +1878,46 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
     for value := range ch {
         if value == nil || value.Node == nil {
-            continue // skip nil nodes
+            panic("GetMany returned nil Node for a CID") // safety check
         }
 
         cidVal := value.Node.Cid()
         indexes, ok := posMap[cidVal]
         if !ok {
-            continue // unexpected CID, ignore
+            panic(fmt.Sprintf("Unexpected CID returned by GetMany: %s", cidVal))
         }
 
         data, err := unixfs.ReadUnixFSNodeData(value.Node)
-        if err != nil || len(data) == 0 {
-            continue // skip invalid data
+        if err != nil {
+            panic(fmt.Sprintf("Failed to read block data for CID %s: %v", cidVal, err))
         }
 
-        // 4. Place the block in all positions corresponding to duplicates
+        // Fill all positions corresponding to duplicates
         for _, idx := range indexes {
             blocks[idx] = data
-			fmt.Printf("Block %d size: %d\n", idx, len(data))
         }
     }
 
-    // 5. Rebuild the output stream in original order, including duplicates
-    var datastreamed []byte
+    // 4. Check that all blocks were filled
+    for i, blk := range blocks {
+        if blk == nil {
+            panic(fmt.Sprintf("Block at index %d was not filled", i))
+        }
+    }
+
+    // 5. Rebuild the shard in original order, including duplicates
+    datastreamed := make([]byte, 0, len(blocks)*len(blocks[0]))
     for _, blk := range blocks {
         datastreamed = append(datastreamed, blk...)
     }
 
-    // 6. Sync write the shard
+    // 6. Safely write the shard to the shared slice
     mu.Lock()
-    if shardswritten < dr.or {
-        shardswritten++
-        fmt.Fprintf(os.Stdout, "Shard %d data size: %d\n", j, len(datastreamed))
-        shards[j] = append(shards[j], datastreamed...)
-        wg.Done()
-    }
+    shards[j] = datastreamed
     mu.Unlock()
+
+    // 7. Mark shard as done
+    wg.Done()
 }(j)
 
 }
