@@ -1886,6 +1886,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
         for _, c := range inputCIDs {
             blk := blocks[c]
+			fmt.Fprintf(os.Stdout, "BBBLLLOOOOOOOCCCCCCCCKKKKK size %d  \n",len(blk))
             datastreamed = append(datastreamed, blk...)
         }
 
