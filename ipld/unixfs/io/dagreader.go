@@ -1876,13 +1876,12 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
     // 3. Fetch blocks from GetMany
     ch := dr.serv.GetMany(dr.ctx, inputCIDs)
-
+wrr := 0
     for value := range ch {
         if value == nil || value.Node == nil {
-            panic("GetMany returned nil Node for a CID") // safety check
-        }
-
-        cidVal := value.Node.Cid()
+            //panic("GetMany returned nil Node for a CID") // safety check
+        } else{
+			 cidVal := value.Node.Cid()
         indexes, ok := posMap[cidVal]
         if !ok {
             panic(fmt.Sprintf("Unexpected CID returned by GetMany: %s", cidVal))
@@ -1895,10 +1894,13 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
         // Fill all positions corresponding to duplicates
         for _, idx := range indexes {
+			wrr ++
             blocks[idx] = data
-        }
+      		}
+		}
+       
     }
-
+fmt.Fprintf(os.Stdout, "Numberrrrrrrrrrrrrrr of CIDs writttennnnn to blocksssssss is : %d \n",wrr)
     // 4. Check that all blocks were filled
     for i, blk := range blocks {
         if blk == nil {
@@ -1907,10 +1909,11 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
     }
 
     // 5. Rebuild the shard in original order, including duplicates
-    datastreamed := make([]byte, 0, len(blocks)*len(blocks[0]))
+    datastreamed := make([]byte, 0)
     for _, blk := range blocks {
         datastreamed = append(datastreamed, blk...)
     }
+	   
 
     // 6. Safely write the shard to the shared slice
     mu.Lock()
