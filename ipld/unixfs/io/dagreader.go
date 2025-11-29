@@ -1863,6 +1863,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					for j := range retnext {
    go func(j int) {
     inputCIDs := retnext[j] // exactly 400 CIDs per shard
+	   fmt.Fprintf(os.Stdout, "Numberrrrrrrrrrrrrrr of CIDs is : %d \n",len(inputCIDs))
 
     // 1. Map each CID to all positions it occurs in (to preserve duplicates)
     posMap := make(map[cid.Cid][]int)
