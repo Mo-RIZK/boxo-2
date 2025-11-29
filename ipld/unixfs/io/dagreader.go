@@ -1862,9 +1862,8 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 					shards := make([][]byte, dr.or+dr.par)
 					for j := range retnext {
     go func(j int) {
-
         inputCIDs := retnext[j] // 400 CIDs, may contain duplicates
-
+		
         // 1. Build mapping CID -> positions where it occurs
         posMap := make(map[cid.Cid][]int)
         for idx, c := range inputCIDs {
@@ -1872,22 +1871,30 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
         }
 
         // 2. When reading from GetMany, store blocks once per CID
-        blocks := make(map[cid.Cid][]byte)
+        blocks := make([][]byte,400)
 
         ch := dr.serv.GetMany(dr.ctx, inputCIDs)
 
         for value := range ch {
-            data, _ := unixfs.ReadUnixFSNodeData(value.Node)
-            blocks[value.Node.Cid()] = data
+			indexes, ok := posMap[value.Node.Cid()]
+   			 if !ok {
+       				 // Should not happen unless GetMany returns unexpected CIDs
+       				 continue
+   			 }
+			 for _, idx := range indexes {
+		 wrote++
+        blocks[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+		 if wrote == 400 {
+			 break
+				 }
+		    }
         }
 
         // 3. Rebuild the output stream in correct order INCLUDING duplicates
         datastreamed := make([]byte, 0)
 
-        for _, c := range inputCIDs {
-            blk := blocks[c]
-			fmt.Fprintf(os.Stdout, "BBBLLLOOOOOOOCCCCCCCCKKKKK size %d  \n",len(blk))
-            datastreamed = append(datastreamed, blk...)
+        for _, c := range blocks {
+            datastreamed = append(datastreamed, c...)
         }
 
         // 4. Sync write the shard
