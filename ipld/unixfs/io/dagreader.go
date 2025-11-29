@@ -1845,7 +1845,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	//var writetime time.Duration
 	//var downloadtime time.Duration
 	fmt.Fprintf(os.Stdout, "111111111111111111111  \n")
-	shardswritten := 0
+	//shardswritten := 0
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	i := 0
