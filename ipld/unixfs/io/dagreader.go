@@ -1839,7 +1839,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 }
 
 // //////////////////// Streaming each set of shards before writing them to disk before movving to the next set of shards Contigouos data layout /////////////////////
-func (dr *dagReader) WriteCont(w io.Writer) (err error) {
+/*func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 	retnext := make([][]cid.Cid, dr.or+dr.par)
 	//var writetime time.Duration
 	//var downloadtime time.Duration
@@ -1938,6 +1938,108 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 				retnext[i] = append(retnext[i], l.Cid)
 				fmt.Fprintf(os.Stdout, "44444444444444444444  \n")
 			}
+		}
+	}
+	//fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+	return nil
+}*/
+// //////////////////// Streaming each set of shards before writing them to disk before movving to the next set of shards Contigouos data layout /////////////////////
+func (dr *dagReader) WriteCont(w io.Writer) (err error) {
+	retnext := make([][]cid.Cid, dr.or+dr.par)
+	//var writetime time.Duration
+	//var downloadtime time.Duration
+	fmt.Fprintf(os.Stdout, "111111111111111111111  \n")
+	shardswritten := 0
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	i := 0
+	//countoflinks := 0
+	var datawrittentofile uint64
+	//filesize := dr.size - uint64(dr.par)*dr.chunksize
+	for _, n := range dr.nodesToExtr {
+		for _, l := range n.Links() {
+				retnext[i] = append(retnext[i], l.Cid)
+				if len(retnext[i]) == 400 && i == dr.or+dr.par-1 {
+					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
+					wg.Add(dr.or)
+					shards := make([][]byte, dr.or+dr.par)
+					for j := range retnext {
+						go func(j int) {
+							inputCIDs := retnext[j] // exactly 400 CIDs
+							fmt.Fprintf(os.Stdout, "CIDs count = %d\n", len(inputCIDs))
+
+							// Direct output buffer
+							datastreamed := make([]byte, 0)
+
+							// Retrieve blocks SEQUENTIALLY (one by one)
+							for _, c := range inputCIDs {
+
+								// SEQUENTIAL → GetBlock (NOT GetMany)
+								blk, err := dr.serv.Get(dr.ctx, c)
+								if err != nil {
+									return
+								}
+
+								data, err := unixfs.ReadUnixFSNodeData(blk)
+								if err != nil {
+								}
+
+								// Append directly in order
+								datastreamed = append(datastreamed, data...)
+							}
+
+							fmt.Fprintf(os.Stdout,
+								"Shard %d data size = %d bytes (all 400 blocks retrieved sequentially)\n",
+								j, len(datastreamed))
+
+							// Write shard
+							mu.Lock()
+							if shardswritten < dr.or {
+								shards[j] = datastreamed
+								mu.Unlock()
+
+								wg.Done()
+							}
+
+						}(j)
+
+					}
+					wg.Wait()
+					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
+					//contain any parity ? reconstruct if yes
+					//enc, _ := reedsolomon.New(dr.or, dr.par)
+					//enc.Reconstruct(shards)
+					//write data\
+					for c, shard := range shards {
+						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n", c)
+						if shard != nil {
+							if datawrittentofile+uint64(len(shard)) < dr.size {
+								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
+								w.Write(shard)
+								datawrittentofile += uint64(len(shard))
+							} else {
+								if datawrittentofile+uint64(len(shard)) == dr.size {
+									fmt.Fprintf(os.Stdout, "the sammmeeeeeeeee  \n")
+									w.Write(shard)
+									return nil
+								} else {
+									fmt.Fprintf(os.Stdout, "lessssssss thannnnnnnnnn  \n")
+									towrite := shard[0 : dr.size-datawrittentofile]
+									w.Write(towrite)
+									return nil
+								}
+							}
+						} else {
+							fmt.Fprintf(os.Stdout, "skipppeeeeeeeedddddddddddddddddd  \n")
+						}
+					}
+					retnext = make([][]cid.Cid, dr.or+dr.par)
+					i = 0
+					//shardswritten = 0
+				}
+				i = (i+1)%(dr.or+dr.par)
+			
 		}
 	}
 	//fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
