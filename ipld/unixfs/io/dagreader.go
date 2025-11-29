@@ -1944,105 +1944,142 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
 	return nil
 }*/
-// //////////////////// Streaming each set of shards before writing them to disk before movving to the next set of shards Contigouos data layout /////////////////////
+
+
+// /////////////// Downloading all chunks and the fastest N chunks we retrieve we will be writing it to disk /////////////////////////
 func (dr *dagReader) WriteCont(w io.Writer) (err error) {
-	retnext := make([][]cid.Cid, dr.or+dr.par)
-	//var writetime time.Duration
-	//var downloadtime time.Duration
-	fmt.Fprintf(os.Stdout, "111111111111111111111  \n")
-	shardswritten := 0
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	i := 0
-	//countoflinks := 0
-	var datawrittentofile uint64
-	//filesize := dr.size - uint64(dr.par)*dr.chunksize
+	fmt.Fprintf(os.Stdout, "Start function  %s  \n", time.Now().Format("15:04:05.000"))
+	var writetime time.Duration
+	var reconstructiontime time.Duration
+	var downloadtimesixnine time.Duration
+	sixninetime := 0
+	nbver := 0
+	nbr := 0
+	sixnine := false
+	enc, _ := reedsolomon.New(dr.or, dr.par)
+	var written uint64
+	written = 0
+	datastreamed := make([][]byte, dr.or)
+	fmt.Fprintf(os.Stdout, "The length of internal nodes are : %d  \n", len(dr.nodesToExtr))
 	for _, n := range dr.nodesToExtr {
+		fmt.Fprintf(os.Stdout, "There are %d links in this node  \n", len(n.Links()))
 		for _, l := range n.Links() {
-				retnext[i] = append(retnext[i], l.Cid)
-				if len(retnext[i]) == 400 && i == dr.or+dr.par-1 {
-					fmt.Fprintf(os.Stdout, "5555555555555555555  \n")
-					wg.Add(dr.or)
-					shards := make([][]byte, dr.or+dr.par)
-					for j := range retnext {
-						go func(j int) {
-							inputCIDs := retnext[j] // exactly 400 CIDs
-							fmt.Fprintf(os.Stdout, "CIDs count = %d\n", len(inputCIDs))
+			if len(dr.retnext) < dr.or+dr.par {
+				topass := linkswithindexes{Link: l, Index: nbr % (dr.or + dr.par)}
+				dr.retnext = append(dr.retnext, topass)
+				//fmt.Fprintf(os.Stdout, "Filled 1 in the retnext %s  \n", time.Now().Format("15:04:05.000"))
+			}
+			if len(dr.retnext) == dr.or+dr.par {
+				sixnine = true
+				//fmt.Fprintf(os.Stdout, "Finish filling the retnext %s  \n", time.Now().Format("15:04:05.000"))
+			}
+			if sixnine {
+				wrote := 0
+				//open channel with context
+				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+				//start n+k gourotines and start retrieving parallel nodes
+				dr.wg.Add(dr.or)
+				togetmany := make([]cid.Cid, 0)
+				d := time.Now()
+				//fmt.Fprintf(os.Stdout, "Start download the linksparallel %s  \n", time.Now().Format("15:04:05.000"))
+				// Create a map of CID -> Index from linksparallel
+				// Build map: cid -> list of indexes
+				cidIndexMap := make(map[cid.Cid][]int)
+				for _, ci := range dr.retnext {
+					togetmany = append(togetmany, ci.Link.Cid)
+					cidIndexMap[ci.Link.Cid] = append(cidIndexMap[ci.Link.Cid], ci.Index)
+				}
 
-							// Direct output buffer
-							datastreamed := make([]byte, 0)
+				// Launch GetMany
+				chann := dr.serv.GetMany(ctx, togetmany)
+				shards := make([][]byte, dr.or+dr.par)
+				reconstruct := 0
 
-							// Retrieve blocks SEQUENTIALLY (one by one)
-							for _, c := range inputCIDs {
+				// Read from channel
+				for value := range chann {
 
-								// SEQUENTIAL → GetBlock (NOT GetMany)
-								blk, err := dr.serv.Get(dr.ctx, c)
-								if err != nil {
-									return
-								}
-
-								data, err := unixfs.ReadUnixFSNodeData(blk)
-								if err != nil {
-								}
-
-								// Append directly in order
-								datastreamed = append(datastreamed, data...)
-							}
-
-							fmt.Fprintf(os.Stdout,
-								"Shard %d data size = %d bytes (all 400 blocks retrieved sequentially)\n",
-								j, len(datastreamed))
-
-							// Write shard
-							mu.Lock()
-							if shardswritten < dr.or {
-								shards[j] = datastreamed
-								mu.Unlock()
-
-								wg.Done()
-							}
-
-						}(j)
-
+					indexes, ok := cidIndexMap[value.Node.Cid()]
+					if !ok {
+						// Should not happen unless GetMany returns unexpected CIDs
+						continue
 					}
-					wg.Wait()
-					fmt.Fprintf(os.Stdout, "666666666666666666666666  \n")
-					//contain any parity ? reconstruct if yes
-					//enc, _ := reedsolomon.New(dr.or, dr.par)
-					//enc.Reconstruct(shards)
-					//write data\
-					for c, shard := range shards {
-						fmt.Fprintf(os.Stdout, "10000001000000100000 shard number %d  \n", c)
-						if shard != nil {
-							if datawrittentofile+uint64(len(shard)) < dr.size {
-								fmt.Fprintf(os.Stdout, "777777777777777777777  \n")
-								w.Write(shard)
-								datawrittentofile += uint64(len(shard))
-							} else {
-								if datawrittentofile+uint64(len(shard)) == dr.size {
-									fmt.Fprintf(os.Stdout, "the sammmeeeeeeeee  \n")
-									w.Write(shard)
-									return nil
-								} else {
-									fmt.Fprintf(os.Stdout, "lessssssss thannnnnnnnnn  \n")
-									towrite := shard[0 : dr.size-datawrittentofile]
-									w.Write(towrite)
-									return nil
-								}
-							}
-						} else {
-							fmt.Fprintf(os.Stdout, "skipppeeeeeeeedddddddddddddddddd  \n")
+
+					// One CID might correspond to multiple indexes
+					for _, idx := range indexes {
+						wrote++
+						fmt.Fprintf(os.Stdout, "69 index : %d  \n", idx)
+						shards[idx], _ = unixfs.ReadUnixFSNodeData(value.Node)
+						if idx >= dr.or {
+							reconstruct = 1
+						}
+						dr.wg.Done()
+						if wrote >= dr.or {
+							break
 						}
 					}
-					retnext = make([][]cid.Cid, dr.or+dr.par)
-					i = 0
-					//shardswritten = 0
+
+					if wrote >= dr.or {
+						cancel()
+						break
+					}
 				}
-				i = (i+1)%(dr.or+dr.par)
-			
+
+				// Wait
+				dr.wg.Wait()
+				//time.Sleep(100 * time.Millisecond)
+				downloadtimesixnine += time.Since(d)
+				sixninetime++
+				//fmt.Fprintf(os.Stdout, "Finished reading from channel and updating indexes and reading to shards nad start reconstruction and verification retnext %s  \n", time.Now().Format("15:04:05.000"))
+				if reconstruct == 1 {
+					nbver++
+					sss1 := time.Now()
+					dr.recnostructtimes++
+					start := time.Now()
+					enc.Reconstruct(shards)
+					end := time.Now()
+					dr.timetakenDecode += end.Sub(start)
+					st := time.Now()
+					enc.Verify(shards)
+					en := time.Now()
+					dr.verificationTime += en.Sub(st)
+					reconstructiontime += time.Since(sss1)
+				}
+				//fmt.Fprintf(os.Stdout, "Finished reconstruction and verification and start writing retnext %s  \n", time.Now().Format("15:04:05.000"))
+				for i, shard := range shards {
+					if i < dr.or {
+						datastreamed[i] = append(datastreamed[i],shard...)
+					}
+				}
+				///	fmt.Fprintf(os.Stdout, "Finished writing retnext %s  \n", time.Now().Format("15:04:05.000"))
+				dr.retnext = make([]linkswithindexes, 0)
+				sixnine = false
+			}
+			nbr++
 		}
 	}
-	//fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
-	//fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtime.String())
+	for _,shard := range datastreamed {
+		if written+uint64(len(shard)) <= dr.size {
+			wr1 := time.Now()
+			w.Write(shard)
+			written += uint64(len(shard))
+			writetime += time.Since(wr1)
+		} else {
+			wr1 := time.Now()
+			towrite := shard[0 : dr.size-written]
+			w.Write(towrite)
+			writetime += time.Since(wr1)
+			fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+			fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
+			fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtimesixnine.String())
+			fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
+			return nil
+		}
+	}
+	
+	fmt.Fprintf(os.Stdout, "New log write time is : %s  \n", writetime.String())
+	fmt.Fprintf(os.Stdout, "New log reconstruction and verification time is : %s  \n", reconstructiontime.String())
+	fmt.Fprintf(os.Stdout, "New log download time is : %s  \n", downloadtimesixnine.String())
+	fmt.Fprintf(os.Stdout, "New log number of reconstructions is : %d  \n", nbver)
+
 	return nil
 }
