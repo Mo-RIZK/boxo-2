@@ -672,6 +672,7 @@ func (dr *dagReader) WriteNPlusK(w io.Writer) (err error) {
 
 				// Wait
 				dr.wg.Wait()
+				fmt.Fprintf(os.Stdout, "Finishhhhhh stripeeeeee  \n")
 				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
@@ -1659,6 +1660,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 
 					// Wait
 					dr.wg.Wait()
+					fmt.Fprintf(os.Stdout, "Finishhhhhh stripeeeeee  \n")
 					//time.Sleep(100 * time.Millisecond)
 					downloadtimesixsix += time.Since(d)
 					sixsixtime++
@@ -1769,6 +1771,7 @@ func (dr *dagReader) WriteNWIMany(w io.Writer, cancell context.CancelFunc) error
 
 				// Wait
 				dr.wg.Wait()
+				fmt.Fprintf(os.Stdout, "Finishhhhhh stripeeeeee  \n")
 				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
@@ -2026,6 +2029,7 @@ func (dr *dagReader) WriteCont(w io.Writer) (err error) {
 
 				// Wait
 				dr.wg.Wait()
+				fmt.Fprintf(os.Stdout, "Finishhhhhh this stripe  \n")
 				//time.Sleep(100 * time.Millisecond)
 				downloadtimesixnine += time.Since(d)
 				sixninetime++
