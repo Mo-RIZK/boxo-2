@@ -27,7 +27,6 @@ var logger = logging.Logger("blockservice")
 type BlockGetter interface {
 	// GetBlock gets the requested block.
 	GetBlock(ctx context.Context, c cid.Cid) (blocks.Block, error)
-	GetBlockNoStore(ctx context.Context, c cid.Cid) (blocks.Block, error)
 
 	// GetBlocks does a batch request for the given cids, returning blocks as
 	// they are found, in no particular order.
