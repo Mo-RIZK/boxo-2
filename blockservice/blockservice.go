@@ -240,19 +240,6 @@ func (s *blockService) GetBlock(ctx context.Context, c cid.Cid) (blocks.Block, e
 	return getBlock(ctx, c, s, s.getExchangeFetcher)
 }
 
-// GetBlock retrieves a particular block from the service,
-// Getting it from the datastore using the key (hash).
-func (s *blockService) GetBlockNoStore(ctx context.Context, c cid.Cid) (blocks.Block, error) {
-	if ses := grabSessionFromContext(ctx, s); ses != nil {
-		return ses.GetBlockNoStore(ctx, c)
-	}
-
-	ctx, span := internal.StartSpan(ctx, "blockService.GetBlock", trace.WithAttributes(attribute.Stringer("CID", c)))
-	defer span.End()
-
-	return getBlockNoStore(ctx, c, s, s.getExchangeFetcher)
-}
-
 // Look at what I have to do, no interface covariance :'(
 func (s *blockService) getExchangeFetcher() exchange.Fetcher {
 	return s.exchange
@@ -302,71 +289,6 @@ func getBlock(ctx context.Context, c cid.Cid, bs BlockService, fetchFactory func
 		}
 	}
 	logger.Debugf("BlockService.BlockFetched %s", c)
-	return blk, nil
-}
-
-func getBlockNoStore(
-	ctx context.Context,
-	c cid.Cid,
-	bs BlockService,
-	fetchFactory func() exchange.Fetcher,
-) (blocks.Block, error) {
-	err := verifcid.ValidateCid(
-		grabAllowlistFromBlockservice(bs),
-		c,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	/*
-		Check the local blockstore first.
-
-		If the block already exists locally, returning it does not cause
-		any new disk write.
-	*/
-	blockstore := bs.Blockstore()
-
-	block, err := blockstore.Get(ctx, c)
-	switch {
-	case err == nil:
-		return block, nil
-
-	case ipld.IsNotFound(err):
-		// Continue and retrieve from the exchange.
-
-	default:
-		return nil, err
-	}
-
-	fetch := fetchFactory()
-	if fetch == nil {
-		logger.Debug("BlockService GetBlockNoStore: block not found")
-		return nil, err
-	}
-
-	logger.Debug("BlockService GetBlockNoStore: searching exchange")
-
-	blk, err := fetch.GetBlock(ctx, c)
-	if err != nil {
-		return nil, err
-	}
-
-	/*
-		Do not call:
-
-		    blockstore.Put(ctx, blk)
-
-		and do not call:
-
-		    bs.Exchange().NotifyNewBlocks(ctx, blk)
-
-		The block is therefore returned directly to the caller without
-		being added to the local IPFS repository.
-	*/
-
-	logger.Debugf("BlockService.BlockFetchedNoStore %s", c)
-
 	return blk, nil
 }
 
@@ -541,14 +463,6 @@ func (s *Session) GetBlock(ctx context.Context, c cid.Cid) (blocks.Block, error)
 	defer span.End()
 
 	return getBlock(ctx, c, s.bs, s.grabSession)
-}
-
-// GetBlock gets a block in the context of a request session
-func (s *Session) GetBlockNoStore(ctx context.Context, c cid.Cid) (blocks.Block, error) {
-	ctx, span := internal.StartSpan(ctx, "Session.GetBlock", trace.WithAttributes(attribute.Stringer("CID", c)))
-	defer span.End()
-
-	return getBlockNoStore(ctx, c, s.bs, s.grabSession)
 }
 
 // GetBlocks gets blocks in the context of a request session
